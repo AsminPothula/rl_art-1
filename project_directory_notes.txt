@@ -1,0 +1,34 @@
+RL_ART-1/
+│
+├── canvas_output.png                         # initial trail
+├── img_to_vid.py                             # initial trail
+├── output_video.mp4                          # initial trail
+├── README.md
+├── project_directory_notes.txt
+├── pics/                                     # initial trail output frames - ignore
+│
+└── deep_rl_painter/
+    ├── main.py
+    ├── target.jpg
+    ├── logs/
+    ├── pics/
+    ├── config.py                 
+    ├── train.py                
+    ├── test.py                  
+    ├── requirements.txt          
+    │
+    ├── env/
+    │   ├── environment.py       
+    │   ├── canvas.py           
+    │   ├── renderer.py           
+    │   └── reward.py        
+    │
+    ├── models/
+    │   ├── actor.py           
+    │   ├── critic.py    
+    │   └── ddpg.py          
+    │
+    └── utils/
+        ├── image_utils.py        
+        ├── replay_buffer.py     
+        └── noise.py              
