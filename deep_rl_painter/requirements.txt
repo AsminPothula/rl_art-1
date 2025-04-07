@@ -1,0 +1,8 @@
+gym
+numpy
+torch
+opencv-python
+matplotlib
+scikit-image 
+tqdm  
+imageio 
