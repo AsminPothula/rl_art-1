@@ -14,10 +14,9 @@ import os
 torch.manual_seed(config["seed"])
 np.random.seed(config["seed"])
 
-# initialize environment
+# initialize environment - might have to change later 
 env = PaintingEnv(
-    image_path=config["target_image"],
-    stroke_length=config["stroke_length"],                   # fixed stroke length 
+    image_path=config["target_image"],              
     error_threshold=config["error_threshold"],               # for minimum error for episode to end
     max_total_length=config["max_total_length"]              # total string length (for episode to end)
 )
@@ -63,8 +62,9 @@ noise_decay = config["noise_decay"]
 for episode in range(config["episodes"]):
     state = env.reset()                                      # reset to blank canvas
     episode_reward = 0                                       # reset reward to 0 
+    done = False
 
-    for step in range(config["max_steps"]):
+    while not done:                                          # while (not done) = while (condition = true) - run when the condition is true, break if condition = false
         action = agent.act(state, noise_scale)               # use agent.act to get (x,y) with exploration - select_action(state) = no noise - use for testing
         next_state, reward, done, _ = env.step(action)       # call step function and get other values
 
@@ -74,9 +74,6 @@ for episode in range(config["episodes"]):
         state = next_state                                   # make next state the current state 
         episode_reward += reward                             # add up each action's reward to get total episode reward
 
-        if done:
-            break
-
     # decay noise
     noise_scale *= noise_decay
 
@@ -85,7 +82,7 @@ for episode in range(config["episodes"]):
     scores_window.append(episode_reward)
     print(f"Episode {episode+1} | Reward: {episode_reward:.2f} | Avg(100): {np.mean(scores_window):.2f}")
 
-    # save model periodically
+    # save model periodically - save all the model parameteres we got from this episode
     if (episode + 1) % config["save_every"] == 0:
         torch.save(actor.state_dict(), f"logs/actor_{episode+1}.pth")
         torch.save(critic.state_dict(), f"logs/critic_{episode+1}.pth")

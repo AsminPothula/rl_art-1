@@ -2,11 +2,11 @@ config = {
     # training setup
     "seed": 42,
     "episodes": 500,
-    "max_steps": 100,
+    "max_steps": 100,                        # not neccesary
 
     # painting environment
     "target_image": "target.jpg",
-    "stroke_length": 10,
+    "stroke_length": 10,                     # not using it anymore 
     "error_threshold": 10000.0,
     "max_total_length": 10000,
 
