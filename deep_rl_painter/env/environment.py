@@ -1,106 +1,60 @@
+# needs to be reviewed - add proper comments 
 import gym
 import numpy as np
 import cv2
-import random
-import matplotlib.pyplot as plt
 from gym import spaces
-import os
+from env.canvas import init_canvas, update_canvas
+from env.renderer import render_stroke
+from reward import compute_reward
 
-class StringArtEnv(gym.Env):
-    def __init__(self, image_path, num_points=100):
-        super(StringArtEnv, self).__init__()
+class PaintingEnv(gym.Env):
+    def __init__(self, image_path, error_threshold, max_total_length):
+        super(PaintingEnv, self).__init__()
+        
+        self.target_image = self.load_image(image_path)
+        self.canvas = init_canvas(self.target_image.shape)
+        self.center = np.array([self.canvas.shape[1] // 2, self.canvas.shape[0] // 2])
+        self.radius = min(self.canvas.shape[0], self.canvas.shape[1]) // 2
+        self.current_point = self.random_circle_point()
+        
+        self.error_threshold = error_threshold
+        self.max_total_length = max_total_length
+        self.used_length = 0
 
-        self.max_steps = 50  # Limit total actions per episode
-        self.current_step = 0  # Step counter
-
-        # Load the target image
-        self.target_image = self.preprocess_image(image_path)
-        self.canvas = np.zeros_like(self.target_image)  # Empty canvas
-        self.border_points = self.get_border_points(self.target_image, num_points) #border_points = indices of points 
-
-        self.ind_init = random.randint(0, len(self.border_points) - 1) # picking a random border point index 
-
-        # Define action and observation spaces
-        self.action_space = spaces.Discrete(len(self.border_points))
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         self.observation_space = spaces.Box(
-            low=0, high=255, shape=(self.target_image.size,), dtype=np.uint8
+            low=0, high=255, shape=self.canvas.shape, dtype=np.uint8
         )
 
-    """Detects areas with sharp intensity changes and identifies them as potential edges.
-    Filters edges by discarding weak ones below 50, keeping strong ones above 150, and retaining intermediate ones only if connected to strong edges.
-    Generates the final edge map with only the most significant edges preserved.
-    Converts the result into a binary image where edges appear white and the background is black."""
-    
-    def preprocess_image(self, image_path):
-        """Loads an image, converts to grayscale, and extracts edges."""
-        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        img = cv2.Canny(img, 50, 150)  # Edge detection 
-        return img # edges are white, rest is black 
+    def load_image(self, path):
+        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        return cv2.resize(img, (256, 256))
 
-    def get_border_points(self, image, num_points):
-        """Detects border points and selects a subset."""
-        edges = np.argwhere(image > 0)  #  finds all non-zero (white) pixels, returning their row and column indices
-        selected_points = random.sample(list(edges), num_points) # out of all edges, it picks num_points number of points 
-        return selected_points
+    def random_circle_point(self):
+        theta = np.random.uniform(0, 2 * np.pi)
+        return (self.center + self.radius * np.array([np.cos(theta), np.sin(theta)])).astype(int)
 
     def step(self, action):
-        """Executes an action (draws a string) and updates state."""
-        self.current_step += 1  # Increment step count
+        direction = action / (np.linalg.norm(action) + 1e-8)
+        next_point = (
+            int(self.current_point[0] + direction[0] * self.radius),
+            int(self.current_point[1] + direction[1] * self.radius)
+        )
 
-        ind_dest = action  # Selected point index
-        start = self.border_points[self.ind_init]
-        end = self.border_points[ind_dest]
+        self.canvas = update_canvas(self.canvas, tuple(self.current_point), tuple(next_point))
+        self.used_length += self.radius
+        self.current_point = next_point
 
-        # Draw a line on the canvas - converting (y,x) to (x,y)
-        cv2.line(self.canvas, tuple(start[::-1]), tuple(end[::-1]), color=255, thickness=1)
-
-        # Update state
-        self.ind_init = ind_dest  
-
-        # Compute reward based on image similarity - assigning the (negative of) distance as the reward itself for now 
-        reward = -np.linalg.norm(self.target_image.flatten() - self.canvas.flatten())
-
-        # Stop condition: end episode after max_steps
-        done = self.current_step >= self.max_steps
-
+        reward = compute_reward(self.target_image, self.canvas)
+        done = reward >= -self.error_threshold or self.used_length >= self.max_total_length
         return self.canvas.flatten(), reward, done, {}
 
     def reset(self):
-        """Resets the environment for a new episode."""
-        self.canvas = np.zeros_like(self.target_image)
-        self.ind_init = random.randint(0, len(self.border_points) - 1) #out of all the border points, one is being picked as the initial point
-        self.current_step = 0  # Reset step count
+        self.canvas = init_canvas(self.target_image.shape)
+        self.current_point = self.random_circle_point()
+        self.used_length = 0
         return self.canvas.flatten()
 
-    def render(self, mode="human"):
-        """Saves the current canvas with border points after each action to the 'pics' folder in Codespaces."""
-        
-        # Define the save path inside the Codespaces directory
-        save_path = os.path.join(os.getcwd(), "pics")  # Saves to a "pics" folder in the current working directory
-
-        # Ensure the directory exists
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)  # Create folder if it doesn't exist
-
-        # Convert canvas to a 3-channel image (so we can add color points)
-        display_canvas = cv2.cvtColor(self.canvas, cv2.COLOR_GRAY2BGR)
-        
-        # Draw border points as red dots
-        for point in self.border_points:
-            cv2.circle(display_canvas, tuple(point[::-1]), radius=5, color=(0, 0, 255), thickness=-1)
-
-        # Save image to the "pics" folder
-        frame_path = os.path.join(save_path, f"frame_{self.current_step}.png")
-
-        # Print the path before saving
-        print(f"Saving image to: {frame_path}")
-
-        cv2.imwrite(frame_path, display_canvas)
-
-        print(f"Saved: {frame_path}")
-
-
-
-
-
-
+    def render(self, mode='human'):
+        cv2.imshow('Canvas', self.canvas)
+        cv2.waitKey(1)
