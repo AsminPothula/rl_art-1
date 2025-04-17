@@ -2,8 +2,8 @@ import torch
 config = {
     # training setup
     "seed": 42,
-    "episodes": 50,                          # change to 500 or more later
-    "max_steps": 100,                        # not neccesary
+    "episodes": 20,                          # change to 500 or more later
+    "max_steps": 10,                         # change to 100 or more later
 
     # painting environment
     "target_image": "deep_rl_painter/target_images/target_image_1.jpg",

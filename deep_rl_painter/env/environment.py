@@ -1,4 +1,5 @@
 # needs to be reviewed - add proper comments 
+import os
 import gym
 import numpy as np
 import cv2
@@ -64,31 +65,38 @@ class PaintingEnv(gym.Env):
         self.used_strokes += 1
         self.current_point = next_point
 
-        # Convert canvas + target to tensors
+        # Compute reward
         prev_tensor = self.to_tensor(prev_canvas)
         current_tensor = self.to_tensor(self.canvas)
         target_tensor = self.to_tensor(self.target_image)
-
-        #reward = reward_function(prev_tensor, current_tensor, target_tensor, lpips_fn)
         reward = calculate_reward(prev_tensor, current_tensor, target_tensor, reward_function, lpips_fn)
-        done = self.used_strokes >= self.max_strokes
 
-        #return self.to_tensor(self.canvas).squeeze(0).flatten(), reward.item(), done, {}
-        return self.to_tensor(self.canvas).squeeze(0).flatten().cpu().numpy(), reward.item(), done, {}
-        #return self.add_position_channels(self.canvas).flatten(), reward.item(), done, {}
-        #return self.to_tensor(self.canvas).squeeze(0)
+        done = self.used_strokes >= self.max_strokes
+        next_state = self.to_tensor(self.canvas).squeeze(0).cpu().numpy().flatten()
+
+        # Return flattened canvas with positional channels — shape (3, H, W) → flattened (196608,)
+        flattened_state = self.add_position_channels(self.canvas).astype(np.float32).flatten()
+        return flattened_state, reward.item(), done
 
     def reset(self):
         self.canvas = init_canvas(self.canvas_size)
         self.current_point = self.random_circle_point()
         self.used_strokes = 0
-        return self.to_tensor(self.canvas).squeeze(0).flatten()
-        #return self.add_position_channels(self.canvas).flatten()
-        #return self.to_tensor(self.canvas).squeeze(0)
+        return self.add_position_channels(self.canvas).astype(np.float32).flatten()
 
-    def render(self, mode='human'):
+    """def render(self, mode='human'):
         cv2.imshow('Canvas', self.canvas)
-        cv2.waitKey(1)
+        cv2.waitKey(1)"""
+    
+    def render(self, episode_num=None, output_dir=None):
+        """
+        Saves the current canvas as an image in the specified output_dir with episode number.
+        """
+        if episode_num is not None and output_dir is not None:
+            os.makedirs(output_dir, exist_ok=True)
+            filename = f"canvas_{episode_num}.png"
+            path = os.path.join(output_dir, filename)
+            cv2.imwrite(path, self.canvas)
 
     def close(self):
         cv2.destroyAllWindows()

@@ -20,17 +20,13 @@ class ReplayBuffer:
         batch = random.sample(self.buffer, batch_size)
         states, actions, rewards, next_states, dones = map(np.array, zip(*batch))
 
-        # Convert actions, rewards, dones to proper shapes
+        states = np.vstack(states)
+        next_states = np.vstack(next_states)
         actions = np.vstack(actions)
         rewards = np.array(rewards).reshape(-1, 1)
         dones = np.array(dones).reshape(-1, 1)
 
-        # Ensure states and next_states are [batch_size, state_dim]
-        states = np.vstack(states)
-        next_states = np.vstack(next_states)
-
         return states, actions, rewards, next_states, dones
-
 
     def __len__(self):
         return len(self.buffer)

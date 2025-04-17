@@ -1,4 +1,6 @@
+import os
 import torch
+import numpy as np
 import argparse
 import lpips
 
@@ -19,12 +21,15 @@ def main(config):
         max_strokes=config["max_steps"],
         device=config["device"]
     )
+    # since we are currently using target_image_1 (config.py) - change accordingly
+    output_dir = os.path.join("deep_rl_painter", "target_image_outputs", "target_output_1")
 
     print("Building actor & critic networks...")
     height, width = config["image_size"]
-    in_channels = 1  # grayscale canvas input
+    in_channels = 3  # grayscale canvas input
     action_dim = env.action_space.shape[0]
-    state_dim = env.observation_space.shape[0]
+    #state_dim = env.observation_space.shape[0]
+    state_dim = in_channels * height * width  # = 3 * 256 * 256 = 196608
 
     # Actor and Target Actor
     actor = Actor(config["model_name"], height, width, in_channels=in_channels,
@@ -35,6 +40,7 @@ def main(config):
     # Critic and Target Critic
     critic = Critic(state_dim, action_dim).to(config["device"])
     critic_target = Critic(state_dim, action_dim).to(config["device"])
+    print(f"[INFO] state_dim = {state_dim}, action_dim = {action_dim}")
 
     # Optimizers
     actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config["actor_lr"])
@@ -84,13 +90,20 @@ def main(config):
         step = 0
 
         while not done:
-            #action = agent.select_action(state)
-            #action = agent.add_noise(action, std=config["noise_std"])
             action = agent.act(state, noise_scale=config["noise_std"])
-            next_state, reward, done, _ = env.step(action, reward_function, lpips_fn)
-            #replay_buffer.store(state, action, next_state, reward, done)
-            #replay_buffer.store(state.cpu().numpy().flatten(), action, next_state.cpu().numpy().flatten(), reward, done)
-            replay_buffer.store(state.flatten(), action, next_state.flatten(), reward, done)
+            next_state, reward, done = env.step(action, reward_function, lpips_fn)
+            # Render every 5th episode - change accordingly
+            if (episode + 1) % 5 == 0:
+                env.render(episode_num=episode + 1, output_dir=output_dir)
+            # Flatten and convert everything before storing
+            state_np = state.flatten() if isinstance(state, np.ndarray) else state.cpu().numpy().flatten()
+            next_state_np = next_state.flatten() if isinstance(next_state, np.ndarray) else next_state.cpu().numpy().flatten()
+            action_np = np.array(action, dtype=np.float32).flatten()
+            reward_scalar = float(reward)
+            done_scalar = float(done)
+
+            replay_buffer.store(state_np, action_np, reward_scalar, next_state_np, done_scalar)
+
             state = next_state
             episode_reward += reward
             step += 1

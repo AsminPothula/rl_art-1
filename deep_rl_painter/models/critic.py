@@ -6,15 +6,14 @@ class Critic(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim=256):
         super(Critic, self).__init__()
 
-        # First layer takes state and action as input (concatenated)
         self.net = nn.Sequential(
-            nn.Linear(state_dim + action_dim, hidden_dim),
+            nn.Linear(state_dim + action_dim, hidden_dim),  # this needs to be 196610
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 1)  # Outputs a single Q-value
+            nn.Linear(hidden_dim, 1)
         )
-
+        
     def forward(self, state, action):
         """
         Forward pass through the critic network.

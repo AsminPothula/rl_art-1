@@ -14,7 +14,7 @@ class Actor(nn.Module):
     def __init__(self, model_name, height, width, in_channels=1, out_channels=2, pretrained=True):
         super(Actor, self).__init__()
         self.model_name = model_name
-        self.in_channels = in_channels + 2  # 2 for x and y direction
+        self.in_channels = in_channels   # 2 for x and y direction
         self.out_channels = out_channels
         self.height = height
         self.width = width
@@ -52,7 +52,7 @@ class Actor(nn.Module):
         self.model.load_state_dict(torch.load(path, map_location=self.device))
 
 
-# ✅ Example/test code (runs only when script is executed directly)
+# Example/test code (runs only when script is executed directly)
 if __name__ == "__main__":
     batch_size = 4
     input_channels = 3
