@@ -1,11 +1,12 @@
+import torch
 config = {
     # training setup
     "seed": 42,
-    "episodes": 500,
+    "episodes": 50,                          # change to 500 or more later
     "max_steps": 100,                        # not neccesary
 
     # painting environment
-    "target_image": "target.jpg",
+    "target_image": "deep_rl_painter/target_images/target_image_1.jpg",
     "stroke_length": 10,                     # not using it anymore 
     "error_threshold": 10000.0,
     "max_total_length": 10000,
@@ -17,6 +18,7 @@ config = {
     "batch_size": 64,
     "gamma": 0.99,
     "tau": 0.005,
+    "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),
 
     # exploration noise
     "initial_noise_scale": 0.2,

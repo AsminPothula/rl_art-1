@@ -1,8 +1,8 @@
 import torch
 import unittest
-from deep_rl_painter.env.environment import PaintingEnvironment
-from deep_rl_painter.models.ddpg import DDPG  # Or your chosen RL algorithm
-from deep_rl_painter.config import Config  # Assuming you have a config.py
+from deep_rl_painter.env.environment import PaintingEnv
+from deep_rl_painter.models.ddpg import DDPGAgent  # Or your chosen RL algorithm
+from deep_rl_painter.config import config  # Assuming you have a config.py
 import lpips
 import os
 
@@ -15,7 +15,7 @@ class TestDeepRLPainter(unittest.TestCase):
         """
         Set up common test objects.  This is run before each test.
         """
-        self.config = Config()  # Or create a simplified config for testing
+        self.config = config()  # Or create a simplified config for testing
         self.config.target_image_path = 'deep_rl_painter/target.jpg'  # Make sure this exists
         self.config.image_size = (256, 256)
         self.config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -35,7 +35,7 @@ class TestDeepRLPainter(unittest.TestCase):
             device=self.config.device
         )
 
-        self.agent = DDPG(
+        self.agent = DDPGAgent(
             state_dim=self.env.observation_space.shape[0],
             action_dim=self.env.action_space.shape[0],
             actor_lr=self.config.actor_lr,

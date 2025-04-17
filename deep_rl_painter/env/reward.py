@@ -148,7 +148,12 @@ def calculate_reward(
     if reward_function == calculate_lpips_reward and lpips_fn is None:
         raise ValueError("lpips_fn must be provided when using calculate_lpips_reward")
 
-    return reward_function(prev_canvas, current_canvas, target_canvas, lpips_fn) # Pass lpips_fn if needed.
+    #return reward_function(prev_canvas, current_canvas, target_canvas, lpips_fn) # Pass lpips_fn if needed.
+    if reward_function == calculate_lpips_reward:
+        return reward_function(prev_canvas, current_canvas, target_canvas, lpips_fn)
+    else:
+        return reward_function(prev_canvas, current_canvas, target_canvas)
+
 
 
 
