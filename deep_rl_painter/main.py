@@ -4,13 +4,22 @@ import numpy as np
 import argparse
 import lpips
 
-from deep_rl_painter.config import config
-from deep_rl_painter.env.environment import PaintingEnv
-from deep_rl_painter.models.actor import Actor
-from deep_rl_painter.models.critic import Critic
-from deep_rl_painter.models.ddpg import DDPGAgent
-from deep_rl_painter.utils.replay_buffer import ReplayBuffer
-from deep_rl_painter.utils.noise import OUNoise  
+# from deep_rl_painter.config import config
+# from deep_rl_painter.env.environment import PaintingEnv
+# from deep_rl_painter.models.actor import Actor
+# from deep_rl_painter.models.critic import Critic
+# from deep_rl_painter.models.ddpg import DDPGAgent
+# from deep_rl_painter.utils.replay_buffer import ReplayBuffer
+# from deep_rl_painter.utils.noise import OUNoise  
+
+
+from config import config
+from env.environment import PaintingEnv
+from models.actor import Actor
+from models.critic import Critic
+from models.ddpg import DDPGAgent
+from utils.replay_buffer import ReplayBuffer
+from utils.noise import OUNoise  
 
 
 def main(config):
@@ -22,7 +31,8 @@ def main(config):
         device=config["device"]
     )
     # since we are currently using target_image_1 (config.py) - change accordingly
-    output_dir = os.path.join("deep_rl_painter", "target_image_outputs", "target_output_1")
+    # output_dir = os.path.join("deep_rl_painter", "target_image_outputs", "target_output_1")
+    output_dir = os.path.join("target_image_outputs", "target_output_1")
 
     print("Building actor & critic networks...")
     height, width = config["image_size"]
@@ -63,7 +73,13 @@ def main(config):
         config=config
     )
 
-    from deep_rl_painter.env.reward import (
+    # from deep_rl_painter.env.reward import (
+    # calculate_ssim_reward,
+    # calculate_mse_reward,
+    # calculate_lpips_reward
+    # )
+
+    from env.reward import (
     calculate_ssim_reward,
     calculate_mse_reward,
     calculate_lpips_reward
@@ -125,7 +141,8 @@ if __name__ == "__main__":
     parser.add_argument('--reward', type=str, default='ssim', help='Reward: ssim, mse, lpips')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--episodes', type=int, default=10000)
-    parser.add_argument('--target_image', type=str, default='deep_rl_painter/target.jpg')
+    # parser.add_argument('--target_image', type=str, default='deep_rl_painter/target.jpg')
+    parser.add_argument('--target_image', type=str, default='target.jpg')
     args = parser.parse_args()
 
     # Update config from CLI
