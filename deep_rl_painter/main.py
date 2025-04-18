@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--episodes', type=int, default=10000)
     # parser.add_argument('--target_image', type=str, default='deep_rl_painter/target.jpg')
-    parser.add_argument('--target_image', type=str, default='target.jpg')
+    parser.add_argument('--target_image', type=str, default='target_images/target_image_1.jpg')
     args = parser.parse_args()
 
     # Update config from CLI
