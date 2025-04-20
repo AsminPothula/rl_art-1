@@ -1,4 +1,6 @@
 # needs to be reviewed - add proper comments 
+# Not even being used in the codebase
+# -*- coding: utf-8 -*-
 import cv2
 import numpy as np
 import torch
@@ -9,7 +11,7 @@ def load_image(path, size=(256, 256)):
     """
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     img = cv2.resize(img, size)
-    img = img / 255.0  # normalize to [0,1]
+    # img = img / 255.0  # normalize to [0,1]
     return img
 
 def preprocess_image(image):

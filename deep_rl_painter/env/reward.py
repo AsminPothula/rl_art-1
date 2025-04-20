@@ -3,8 +3,6 @@ import torch.nn.functional as F
 import lpips
 from typing import Callable
 
-# Looks good
-
 
 def calculate_ssim_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tensor, target_canvas: torch.Tensor) -> torch.Tensor:
     """
@@ -34,8 +32,6 @@ def calculate_ssim_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tenso
 
     # Not sure if this is correct - Keshav
     return torch.tensor(ssim_values).unsqueeze(1).to(prev_canvas.device)
-
-# Looks good
 
 
 def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11, k1: float = 0.01, k2: float = 0.03) -> torch.Tensor:
@@ -77,7 +73,7 @@ def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11
 
     def conv_gauss(img, window):
         padding = window_size // 2
-        return F.conv2d(img, window, padding=padding, groups=img.size(1))
+        return F.conv2d(img, window, padding=padding, groups=1)
 
     mu1 = conv_gauss(img1, window)
     mu2 = conv_gauss(img2, window)

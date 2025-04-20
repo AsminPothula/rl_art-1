@@ -2,6 +2,10 @@
 import numpy as np
 
 class OUNoise:
+    """
+    Ornstein-Uhlenbeck process for generating noise, often used in reinforcement learning
+    to facilitate exploration by adding temporally correlated noise to actions.
+    """
     def __init__(self, size, mu=0.0, theta=0.15, sigma=0.2):
         self.size = size
         self.mu = mu

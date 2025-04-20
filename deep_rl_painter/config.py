@@ -3,10 +3,10 @@ config = {
     # training setup
     "seed": 42,
     "episodes": 50,                          # change to 500 or more later
-    "max_steps": 50,                         # change to 100 or more later
+    "max_steps": 50,                         # is this the number of strokes?
 
     # painting environment
-    "target_image": "deep_rl_painter/target_images/target_image_1.jpg",
+    "target_image": "target_images/target_image_1.jpg",
     "stroke_length": 10,                     # not using it anymore 
     "error_threshold": 10000.0,
     "max_total_length": 10000,

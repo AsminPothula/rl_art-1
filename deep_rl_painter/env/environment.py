@@ -44,6 +44,8 @@ class PaintingEnv(gym.Env):
         # Read the image in grayscale, we can add support for color images later
         # img -> [H, W, C] -> [H, W] (grayscale), numpy array, dtype=np.uint8
         img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        img = cv2.resize(
+            img, (self.canvas_size[1], self.canvas_size[0]), interpolation=cv2.INTER_AREA)
         return img
 
     def random_circle_point(self):
