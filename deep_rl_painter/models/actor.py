@@ -2,7 +2,8 @@
 
 """ Input: [state_dim]
 → Hidden layers
-→ Output: [action_dim] = 2 (x and y direction) """
+→ Output: [action_dim] = 2 (x and y direction) 
+"""
 
 import torch
 import torch.nn as nn

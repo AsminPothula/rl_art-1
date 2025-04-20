@@ -3,6 +3,8 @@ import torch.nn.functional as F
 import lpips
 from typing import Callable
 
+# Looks good
+
 
 def calculate_ssim_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tensor, target_canvas: torch.Tensor) -> torch.Tensor:
     """
@@ -30,7 +32,10 @@ def calculate_ssim_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tenso
         # Reward is the change in SSIM.  We want to maximize the change.
         ssim_values.append(ssim_ct - ssim_pt)
 
+    # Not sure if this is correct - Keshav
     return torch.tensor(ssim_values).unsqueeze(1).to(prev_canvas.device)
+
+# Looks good
 
 
 def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11, k1: float = 0.01, k2: float = 0.03) -> torch.Tensor:
@@ -39,8 +44,8 @@ def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11
     This is a lower-level function, used by calculate_ssim_reward.
 
     Args:
-        img1 (torch.Tensor): The first image (shape: [1, 3, height, width]).
-        img2 (torch.Tensor): The second image (shape: [1, 3, height, width]).
+        img1 (torch.Tensor): The first image (shape: [1, C, height, width]).
+        img2 (torch.Tensor): The second image (shape: [1, C, height, width]).
         window_size (int, optional): The size of the Gaussian window (default: 11).
         k1 (float, optional): Parameter to prevent division by zero (default: 0.01).
         k2 (float, optional): Parameter to prevent division by zero (default: 0.03).
@@ -66,7 +71,7 @@ def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11
     window_1d = gaussian_filter(window_size, 1.5).unsqueeze(1)
     window_2d = torch.mm(window_1d, window_1d.t()).unsqueeze(
         0).unsqueeze(0)  # [1, 1, window_size, window_size]
-    # [C, 1, window_size, window_size]
+    # [C, 1, window_size, window_size], C is 1 in case of grayscale (this case)
     window = window_2d.expand(
         img1.size(1), 1, window_size, window_size).contiguous()
 
@@ -88,6 +93,8 @@ def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / \
         ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
     return ssim_map.mean()
+
+# Looks good
 
 
 def calculate_mse_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tensor, target_canvas: torch.Tensor) -> torch.Tensor:
@@ -131,13 +138,8 @@ def calculate_lpips_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tens
     return -(lpips_current - lpips_prev).unsqueeze(1)  # shape [batch_size, 1]
 
 
-def calculate_reward(
-    prev_canvas: torch.Tensor,
-    current_canvas: torch.Tensor,
-    target_canvas: torch.Tensor,
-    reward_function: Callable,
-    lpips_fn: lpips.LPIPS = None  # Make lpips_fn optional
-) -> torch.Tensor:
+def calculate_reward(prev_canvas, current_canvas, target_canvas,
+                     reward_function, lpips_fn: lpips.LPIPS = None):
     """
     Calculates the reward based on the chosen reward function.
 
@@ -152,6 +154,7 @@ def calculate_reward(
     Returns:
         torch.Tensor: The calculated reward (shape: [batch_size, 1]).
     """
+    # Must modify this function with better names - Keshav
     if reward_function == calculate_lpips_reward and lpips_fn is None:
         raise ValueError(
             "lpips_fn must be provided when using calculate_lpips_reward")

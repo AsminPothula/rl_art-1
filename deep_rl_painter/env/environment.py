@@ -57,16 +57,20 @@ class PaintingEnv(gym.Env):
         # position_map -> [H, W] (position map), numpy array, dtype=np.float32
         h, w = canvas.shape
         position_map = np.zeros((h, w), dtype=np.float32)
-        position_map[self.current_point[1], self.current_point[0]
-                     ] = 100.0  # Set current point to 100
-        stacked = np.stack([canvas, position_map],
-                           axis=0).astype(np.float32)  # shape [2, H, W]
+        # Random value chosen, later we can modify it to say
+        # the number of times the point has been used
+        position_map[self.current_point[1], self.current_point[0]] = 100.0
+        # shape [2, H, W]
+        stacked = np.stack([canvas, position_map], axis=0).astype(np.float32)
         return stacked
 
     def to_tensor(self, img):
         """Converts [H,W] numpy array to [1,C,H,W] normalized tensor with position encodings."""
-        return torch.tensor(img).unsqueeze(0).to(self.device) # [1, C, H, W]
+        return torch.tensor(img).unsqueeze(0).to(self.device)  # [1, C, H, W]
 
+    # I dont understand why we have a lpips_fn here
+    # Also what exactly is the reward function?
+    # Is it string or a function? - Keshav
     def step(self, action, reward_function, lpips_fn=None):
         """
         Takes a step in the environment using the given action.
