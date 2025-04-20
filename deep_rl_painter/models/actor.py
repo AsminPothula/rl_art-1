@@ -12,10 +12,21 @@ import torch.nn.functional as F
 from torchsummary import summary
 
 class Actor(nn.Module):
-    def __init__(self, model_name, height, width, in_channels=1, out_channels=2, pretrained=True):
+    def __init__(self, model_name, height, width, in_channels=2, out_channels=6, pretrained=True):
+        """
+        Initialize the Actor model.
+        Args:
+            model_name (str): Name of the model architecture to use ('resnet', 'efficient
+            net', 'cae' : Custom).
+            height (int): Height of the input image.
+            width (int): Width of the input image.
+            in_channels (int): Number of input channels (default: 2).
+            out_channels (int): Number of output values (default: 6) (x,y,r,g,b,width).
+            pretrained (bool): Whether to use a pretrained model (default: True).
+        """
         super(Actor, self).__init__()
         self.model_name = model_name
-        self.in_channels = in_channels   # 2 for x and y direction
+        self.in_channels = in_channels
         self.out_channels = out_channels
         self.height = height
         self.width = width
@@ -40,7 +51,6 @@ class Actor(nn.Module):
 
     def forward(self, x):
         if self.model_name in ["resnet", "efficientnet"]:
-            #out = self.model(x).view(x.size(0), self.out_channels, self.height, self.width)
             out = self.model(x)
         elif self.model_name == "cae":
             out = self.model(x)
@@ -56,21 +66,17 @@ class Actor(nn.Module):
 # Example/test code (runs only when script is executed directly)
 if __name__ == "__main__":
     batch_size = 4
-    input_channels = 3
+    input_channels = 2
+    output_channels = 6
     height = 256
     width = 256
 
     input_image = torch.randn(batch_size, input_channels, height, width)
-    start_x = torch.randint(0, width, (batch_size, 1, 1, 1)).float() / width
-    start_y = torch.randint(0, height, (batch_size, 1, 1, 1)).float() / height
-    start_x = start_x.expand(-1, 1, height, width)
-    start_y = start_y.expand(-1, 1, height, width)
-    input_tensor = torch.cat((input_image, start_x, start_y), dim=1)
 
     # Test each model
     for model_name in ["resnet", "efficientnet", "cae"]:
         print(f"\n--- Testing {model_name} ---")
-        model = Actor(model_name, height, width, input_channels, 2, pretrained=False)
-        summary(model, input_tensor.shape[1:])
-        output = model(input_tensor)
+        model = Actor(model_name, height, width, input_channels, output_channels, pretrained=False)
+        summary(model, input_image.shape[1:])
+        output = model(input_image)
         print(f"{model_name} output shape:", output.shape)

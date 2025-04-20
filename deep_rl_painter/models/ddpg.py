@@ -20,7 +20,7 @@ class DDPGAgent:
 
     def select_action(self, state):
         height, width = self.config["image_size"]
-        channels = 3  # grayscale + x + y
+        channels = 2  # grayscale
         state = torch.FloatTensor(state).to(self.config["device"]).view(1, channels, height, width)
         self.actor.eval()
         with torch.no_grad():
