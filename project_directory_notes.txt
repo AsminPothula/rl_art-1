@@ -32,3 +32,20 @@ RL_ART-1/
         ├── image_utils.py        
         ├── replay_buffer.py     
         └── noise.py              
+
+Keshav - 
+models/actor.py – Implement forward(state)
+reward.py – Implement compute_reward, ssim_reward, mse_reward
+image_utils.py – Support reward computation with image preprocessing
+test.py – Evaluate trained models using reward metrics
+main.py 
+
+
+Asmin - 
+Critic 
+models/ddpg.py – train, update_actor_critic, select_action - loss fucn here again 
+renderer.py – render_stroke, show_canvas
+canvas.py – init_canvas, update_canvas, save_canvas
+environment.py – Use DDPG + canvas to implement reset, step, render
+train.py
+noise.py, replay_buffer.py
