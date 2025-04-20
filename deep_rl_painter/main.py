@@ -4,14 +4,6 @@ import numpy as np
 import argparse
 import lpips
 
-# from deep_rl_painter.config import config
-# from deep_rl_painter.env.environment import PaintingEnv
-# from deep_rl_painter.models.actor import Actor
-# from deep_rl_painter.models.critic import Critic
-# from deep_rl_painter.models.ddpg import DDPGAgent
-# from deep_rl_painter.utils.replay_buffer import ReplayBuffer
-# from deep_rl_painter.utils.noise import OUNoise  
-
 
 from config import config
 from env.environment import PaintingEnv
@@ -154,7 +146,7 @@ if __name__ == "__main__":
 
     # Static config settings
     config["device"] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    config["image_size"] = (256, 256)
+    config["image_size"] = (1080, 1080)
     config["replay_buffer_size"] = 100000
     config["actor_lr"] = 1e-4
     config["critic_lr"] = 1e-3
@@ -168,13 +160,3 @@ if __name__ == "__main__":
 
     main(config)
 
-
-
-# running instructions 
-# @AsminPothula ➜ /workspaces/rl_art-1 (main) $ cd deep_rl_painter
-# @AsminPothula ➜ /workspaces/rl_art-1/deep_rl_painter (main) $ pip install -rrequirements.txt
-# @AsminPothula ➜ /workspaces/rl_art-1/deep_rl_painter (main) $ cd ..
-# @AsminPothula ➜ /workspaces/rl_art-1 (main) $ sudo apt update && sudo apt install -y libgl1
-# @AsminPothula ➜ /workspaces/rl_art-1 (main) $ pip install torch==2.2.2 torchvision==0.17.2 lpips
-# @AsminPothula ➜ /workspaces/rl_art-1 (main) $ pip install numpy==1.26.4 --force-reinstall
-# @AsminPothula ➜ /workspaces/rl_art-1 (main) $ PYTHONPATH=. python deep_rl_painter/main.py

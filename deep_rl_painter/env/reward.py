@@ -9,10 +9,10 @@ def calculate_ssim_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tenso
     Calculates the Structural Similarity Index Measure (SSIM) reward.  Higher is better (closer to 1).
 
     Args:
-        prev_canvas (torch.Tensor): The previous canvas state (shape: [batch_size, 3, height, width]).
-        current_canvas (torch.Tensor): The current canvas state (shape: [batch_size, 3, height, width]).
-        target_canvas (torch.Tensor): The target canvas state (shape: [batch_size, 3, height, width]).
-
+        prev_canvas (torch.Tensor): The previous canvas state (shape: [batch_size, C, height, width]).
+        current_canvas (torch.Tensor): The current canvas state (shape: [batch_size, C, height, width]).
+        target_canvas (torch.Tensor): The target canvas state (shape: [batch_size, C, height, width]).
+        C (int): Number of channels in the image (e.g., 3 for RGB, in this case C=1).
     Returns:
         torch.Tensor: The SSIM reward (shape: [batch_size, 1]).
     """
@@ -21,14 +21,17 @@ def calculate_ssim_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tenso
     ssim_values = []
     for i in range(batch_size):
         # Calculate SSIM between current and target
-        ssim_ct = calculate_ssim(current_canvas[i].unsqueeze(0), target_canvas[i].unsqueeze(0))
+        ssim_ct = calculate_ssim(current_canvas[i].unsqueeze(
+            0), target_canvas[i].unsqueeze(0))
         # Calculate SSIM between previous and target
-        ssim_pt = calculate_ssim(prev_canvas[i].unsqueeze(0), target_canvas[i].unsqueeze(0))
+        ssim_pt = calculate_ssim(prev_canvas[i].unsqueeze(
+            0), target_canvas[i].unsqueeze(0))
 
         # Reward is the change in SSIM.  We want to maximize the change.
         ssim_values.append(ssim_ct - ssim_pt)
 
     return torch.tensor(ssim_values).unsqueeze(1).to(prev_canvas.device)
+
 
 def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11, k1: float = 0.01, k2: float = 0.03) -> torch.Tensor:
     """
@@ -61,8 +64,11 @@ def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11
         return gauss / gauss.sum()
 
     window_1d = gaussian_filter(window_size, 1.5).unsqueeze(1)
-    window_2d = torch.mm(window_1d, window_1d.t()).unsqueeze(0).unsqueeze(0)  # [1, 1, window_size, window_size]
-    window = window_2d.expand(img1.size(1), 1, window_size, window_size).contiguous()  # [C, 1, window_size, window_size]
+    window_2d = torch.mm(window_1d, window_1d.t()).unsqueeze(
+        0).unsqueeze(0)  # [1, 1, window_size, window_size]
+    # [C, 1, window_size, window_size]
+    window = window_2d.expand(
+        img1.size(1), 1, window_size, window_size).contiguous()
 
     def conv_gauss(img, window):
         padding = window_size // 2
@@ -79,9 +85,9 @@ def calculate_ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11
     sigma2_sq = conv_gauss(img2 * img2, window) - mu2_sq
     sigma12 = conv_gauss(img1 * img2, window) - mu1_mu2
 
-    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
+    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / \
+        ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
     return ssim_map.mean()
-
 
 
 def calculate_mse_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tensor, target_canvas: torch.Tensor) -> torch.Tensor:
@@ -96,11 +102,12 @@ def calculate_mse_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tensor
     Returns:
         torch.Tensor: The MSE reward (shape: [batch_size, 1]).
     """
-    mse_prev = F.mse_loss(prev_canvas, target_canvas, reduction='none').mean(dim=[1, 2, 3])
-    mse_current = F.mse_loss(current_canvas, target_canvas, reduction='none').mean(dim=[1, 2, 3])
+    mse_prev = F.mse_loss(prev_canvas, target_canvas,
+                          reduction='none').mean(dim=[1, 2, 3])
+    mse_current = F.mse_loss(
+        current_canvas, target_canvas, reduction='none').mean(dim=[1, 2, 3])
     # Reward is the *negative* change in MSE (we want to *decrease* the MSE).
     return -(mse_current - mse_prev).unsqueeze(1)
-
 
 
 def calculate_lpips_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tensor, target_canvas: torch.Tensor, lpips_fn: lpips.LPIPS) -> torch.Tensor:
@@ -118,10 +125,10 @@ def calculate_lpips_reward(prev_canvas: torch.Tensor, current_canvas: torch.Tens
     """
 
     # LPIPS expects input in the range [0, 1]
-    lpips_prev = lpips_fn(prev_canvas, target_canvas).squeeze() # shape [batch_size]
+    # shape [batch_size]
+    lpips_prev = lpips_fn(prev_canvas, target_canvas).squeeze()
     lpips_current = lpips_fn(current_canvas, target_canvas).squeeze()
-    return -(lpips_current - lpips_prev).unsqueeze(1) # shape [batch_size, 1]
-
+    return -(lpips_current - lpips_prev).unsqueeze(1)  # shape [batch_size, 1]
 
 
 def calculate_reward(
@@ -146,15 +153,14 @@ def calculate_reward(
         torch.Tensor: The calculated reward (shape: [batch_size, 1]).
     """
     if reward_function == calculate_lpips_reward and lpips_fn is None:
-        raise ValueError("lpips_fn must be provided when using calculate_lpips_reward")
+        raise ValueError(
+            "lpips_fn must be provided when using calculate_lpips_reward")
 
-    #return reward_function(prev_canvas, current_canvas, target_canvas, lpips_fn) # Pass lpips_fn if needed.
+    # return reward_function(prev_canvas, current_canvas, target_canvas, lpips_fn) # Pass lpips_fn if needed.
     if reward_function == calculate_lpips_reward:
         return reward_function(prev_canvas, current_canvas, target_canvas, lpips_fn)
     else:
         return reward_function(prev_canvas, current_canvas, target_canvas)
-
-
 
 
 if __name__ == "__main__":
@@ -168,19 +174,25 @@ if __name__ == "__main__":
     target_canvas = torch.randn(batch_size, 3, height, width)
 
     # Ensure data is in the range [0, 1] for LPIPS
-    prev_canvas = (prev_canvas - prev_canvas.min()) / (prev_canvas.max() - prev_canvas.min())
-    current_canvas = (current_canvas - current_canvas.min()) / (current_canvas.max() - current_canvas.min())
-    target_canvas = (target_canvas - target_canvas.min()) / (target_canvas.max() - target_canvas.min())
-
+    prev_canvas = (prev_canvas - prev_canvas.min()) / \
+        (prev_canvas.max() - prev_canvas.min())
+    current_canvas = (current_canvas - current_canvas.min()) / \
+        (current_canvas.max() - current_canvas.min())
+    target_canvas = (target_canvas - target_canvas.min()) / \
+        (target_canvas.max() - target_canvas.min())
 
     # Initialize LPIPS (only do this once!)
-    lpips_fn = lpips.LPIPS(net='vgg').to(prev_canvas.device) #  Move to the device
+    lpips_fn = lpips.LPIPS(net='vgg').to(
+        prev_canvas.device)  # Move to the device
 
     # Calculate rewards
-    ssim_reward = calculate_reward(prev_canvas, current_canvas, target_canvas, calculate_ssim_reward)
-    mse_reward = calculate_reward(prev_canvas, current_canvas, target_canvas, calculate_mse_reward)
-    lpips_reward = calculate_reward(prev_canvas, current_canvas, target_canvas, calculate_lpips_reward, lpips_fn) # Pass the lpips_fn
-
+    ssim_reward = calculate_reward(
+        prev_canvas, current_canvas, target_canvas, calculate_ssim_reward)
+    mse_reward = calculate_reward(
+        prev_canvas, current_canvas, target_canvas, calculate_mse_reward)
+    lpips_reward = calculate_reward(
+        # Pass the lpips_fn
+        prev_canvas, current_canvas, target_canvas, calculate_lpips_reward, lpips_fn)
 
     print("SSIM Reward:", ssim_reward)
     print("MSE Reward:", mse_reward)
