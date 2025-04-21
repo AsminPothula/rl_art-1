@@ -10,9 +10,13 @@ import torch.nn as nn
 import torchvision.models as models
 import torch.nn.functional as F
 from torchsummary import summary
+import warnings
+
+# Turn off all warnings
+warnings.filterwarnings("ignore")
 
 class Actor(nn.Module):
-    def __init__(self, model_name, height, width, in_channels=2, out_channels=6, pretrained=True):
+    def __init__(self, model_name, height, width, in_channels, out_neurons, pretrained=True):
         """
         Initialize the Actor model.
         Args:
@@ -20,25 +24,25 @@ class Actor(nn.Module):
             net', 'cae' : Custom).
             height (int): Height of the input image.
             width (int): Width of the input image.
-            in_channels (int): Number of input channels (default: 2).
-            out_channels (int): Number of output values (default: 6) (x,y,r,g,b,width).
+            in_channels (int): Number of input channels (if 2: grayscale canvas + positional map).
+            out_neurons (int): Number of output values (if 6: x,y,r,g,b,width).
             pretrained (bool): Whether to use a pretrained model (default: True).
         """
         super(Actor, self).__init__()
         self.model_name = model_name
         self.in_channels = in_channels
-        self.out_channels = out_channels
+        self.out_neurons = out_neurons
         self.height = height
         self.width = width
 
         if model_name == "resnet":
             self.model = models.resnet18(pretrained=pretrained)
             self.model.conv1 = nn.Conv2d(self.in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-            self.model.fc = nn.Linear(self.model.fc.in_features, self.out_channels)  #
+            self.model.fc = nn.Linear(self.model.fc.in_features, self.out_neurons)  #
         elif model_name == "efficientnet":
             self.model = models.efficientnet_b0(pretrained=pretrained)
             self.model.features[0][0] = nn.Conv2d(self.in_channels, 32, kernel_size=3, stride=2, padding=1, bias=False)
-            self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, self.out_channels)  #
+            self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, self.out_neurons)  #
         elif model_name == "cae":
             self.model = nn.Sequential(
                 nn.Conv2d(self.in_channels, 16, kernel_size=3, stride=2, padding=1),
@@ -67,7 +71,7 @@ class Actor(nn.Module):
 if __name__ == "__main__":
     batch_size = 4
     input_channels = 2
-    output_channels = 6
+    output_neurons = 6
     height = 256
     width = 256
 
@@ -76,7 +80,7 @@ if __name__ == "__main__":
     # Test each model
     for model_name in ["resnet", "efficientnet", "cae"]:
         print(f"\n--- Testing {model_name} ---")
-        model = Actor(model_name, height, width, input_channels, output_channels, pretrained=False)
+        model = Actor(model_name, height, width, input_channels, output_neurons, pretrained=False)
         summary(model, input_image.shape[1:])
         output = model(input_image)
         print(f"{model_name} output shape:", output.shape)

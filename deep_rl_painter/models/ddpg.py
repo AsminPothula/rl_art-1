@@ -4,7 +4,7 @@ import numpy as np
 
 class DDPGAgent:
     def __init__(self, actor, critic, actor_target, critic_target,
-                 actor_optimizer, critic_optimizer, replay_buffer, noise, config):
+                 actor_optimizer, critic_optimizer, replay_buffer, noise, config, channels):
         self.actor = actor
         self.critic = critic
         self.actor_target = actor_target
@@ -14,13 +14,14 @@ class DDPGAgent:
         self.replay_buffer = replay_buffer
         self.noise = noise
         self.config = config
+        self.channels = channels
 
         self.actor_target.load_state_dict(actor.state_dict())
         self.critic_target.load_state_dict(critic.state_dict())
 
     def select_action(self, state):
         height, width = self.config["image_size"]
-        channels = 2  # grayscale
+        channels = self.channels # 2  # grayscale
         state = torch.FloatTensor(state).to(self.config["device"]).view(1, channels, height, width)
         self.actor.eval()
         with torch.no_grad():

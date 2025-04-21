@@ -23,25 +23,25 @@ def main(config):
         device=config["device"]
     )
     # since we are currently using target_image_1 (config.py) - change accordingly
-    # output_dir = os.path.join("deep_rl_painter", "target_image_outputs", "target_output_1")
     output_dir = os.path.join("target_image_outputs", "target_output_1")
 
     print("Building actor & critic networks...")
     height, width = config["image_size"]
-    in_channels = 3  # grayscale canvas input
+    in_channels = 2  # grayscale canvas input
     action_dim = env.action_space.shape[0]
     #state_dim = env.observation_space.shape[0]
-    state_dim = in_channels * height * width  # = 3 * 256 * 256 = 196608
+    state_dim = in_channels * height * width  # = 2 * 256 * 256
 
     # Actor and Target Actor
     actor = Actor(config["model_name"], height, width, in_channels=in_channels,
-                  out_channels=action_dim, pretrained=True).to(config["device"])
+                  out_neurons=action_dim, pretrained=True).to(config["device"])
     actor_target = Actor(config["model_name"], height, width, in_channels=in_channels,
-                         out_channels=action_dim, pretrained=True).to(config["device"])
+                         out_neurons=action_dim, pretrained=True).to(config["device"])
 
     # Critic and Target Critic
-    critic = Critic(state_dim, action_dim).to(config["device"])
-    critic_target = Critic(state_dim, action_dim).to(config["device"])
+    # Critic(model_name, height, width, in_channels, action_dim)
+    critic = Critic(config["model_name"],height, width,state_dim, action_dim).to(config["device"])
+    critic_target = Critic(config["model_name"],height, width,state_dim, action_dim).to(config["device"])
     print(f"[INFO] state_dim = {state_dim}, action_dim = {action_dim}")
 
     # Optimizers
@@ -62,14 +62,9 @@ def main(config):
         critic_optimizer=critic_optimizer,
         replay_buffer=replay_buffer,
         noise=noise,
-        config=config
+        config=config,
+        channels=in_channels
     )
-
-    # from deep_rl_painter.env.reward import (
-    # calculate_ssim_reward,
-    # calculate_mse_reward,
-    # calculate_lpips_reward
-    # )
 
     from env.reward import (
     calculate_ssim_reward,
@@ -133,7 +128,6 @@ if __name__ == "__main__":
     parser.add_argument('--reward', type=str, default='ssim', help='Reward: ssim, mse, lpips')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--episodes', type=int, default=10000)
-    # parser.add_argument('--target_image', type=str, default='deep_rl_painter/target.jpg')
     parser.add_argument('--target_image', type=str, default='target_images/target_image_1.jpg')
     args = parser.parse_args()
 
@@ -146,7 +140,7 @@ if __name__ == "__main__":
 
     # Static config settings
     config["device"] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    config["image_size"] = (1080, 1080)
+    config["image_size"] = (256, 256)
     config["replay_buffer_size"] = 100000
     config["actor_lr"] = 1e-4
     config["critic_lr"] = 1e-3

@@ -1,8 +1,8 @@
 import torch
 import unittest
-from deep_rl_painter.env.environment import PaintingEnv
-from deep_rl_painter.models.ddpg import DDPGAgent  # Or your chosen RL algorithm
-from deep_rl_painter.config import config  # Assuming you have a config.py
+from env.environment import PaintingEnv
+from models.ddpg import DDPGAgent  # Or your chosen RL algorithm
+from config import config  # Assuming you have a config.py
 import lpips
 import os
 
