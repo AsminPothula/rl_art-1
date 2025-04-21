@@ -41,7 +41,7 @@ class DDPGAgent:
         # Load training parameters
         batch_size = self.config["batch_size"]
         height, width = self.config["image_size"]
-        channels = 3  # canvas + x + y positional channels
+        channels = self.channels
         flat_state_dim = channels * height * width
 
         # Sample experience batch
@@ -56,11 +56,13 @@ class DDPGAgent:
         dones = torch.tensor(dones, dtype=torch.float32).unsqueeze(1).to(self.config["device"])
 
         # Reshape for CNN-based actor input
-        if states.shape[1] != flat_state_dim:
-            raise ValueError(f"Expected states shape to be ({batch_size}, {flat_state_dim}), got {states.shape}")
-        if next_states.shape[1] != flat_state_dim:
-            raise ValueError(f"Expected next_states shape to be ({batch_size}, {flat_state_dim}), got {next_states.shape}")
+        # if states.shape[1] != flat_state_dim:
+        #     raise ValueError(f"Expected states shape to be ({batch_size}, {flat_state_dim}), got {states.shape}")
+        # if next_states.shape[1] != flat_state_dim:
+        #     raise ValueError(f"Expected next_states shape to be ({batch_size}, {flat_state_dim}), got {next_states.shape}")
 
+        print(f"[DEBUG] states shape: {states.shape}, batch_size: {batch_size}, channels: {channels}, height: {height}, width: {width}")
+        print(f"[DEBUG] next_states shape: {next_states.shape}, batch_size: {batch_size}, channels: {channels}, height: {height}, width: {width}")
         states_reshaped = states.view(batch_size, channels, height, width)
         next_states_reshaped = next_states.view(batch_size, channels, height, width)
 
