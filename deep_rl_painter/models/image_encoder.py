@@ -44,18 +44,18 @@ class ImageEncoder(nn.Module):
         # Select CNN architecture
         if self.custom_model is not None:
             self.cnn = self.custom_model
-        elif model_name.startswith('resnet'):
-            self.cnn = self._get_resnet(model_name)
-        elif model_name.startswith('efficientnet'):
-            self.cnn = self._get_efficientnet(model_name)
-        elif model_name.startswith('vgg'):
-            self.cnn = self._get_vgg(model_name)
-        elif model_name == 'inception_v3':
+        elif self.model_name.startswith('resnet'):
+            self.cnn = self._get_resnet(self.model_name)
+        elif self.model_name.startswith('efficientnet'):
+            self.cnn = self._get_efficientnet(self.model_name)
+        elif self.model_name.startswith('vgg'):
+            self.cnn = self._get_vgg(self.model_name)
+        elif self.model_name == 'inception_v3':
             self.cnn = self._get_inception_v3()
-        elif model_name == 'convnext_tiny':
+        elif self.model_name == 'convnext_tiny':
             self.cnn = self._get_convnext_tiny()
         else:
-            raise ValueError(f"Invalid model name: {model_name}")
+            raise ValueError(f"Invalid model name: {self.model_name}")
 
         self._freeze_params()
 
@@ -76,7 +76,7 @@ class ImageEncoder(nn.Module):
         else:
             raise ValueError(f"Invalid ResNet model name: {model_name}")
         # Remove the last fully connected layer
-        model = nn.Sequential(*list(model.children())[:-2])
+        model = nn.Sequential(*list(model.children())[:-2],nn.Flatten())
         return model
 
     def _get_efficientnet(self, model_name: str) -> nn.Module:
@@ -102,7 +102,7 @@ class ImageEncoder(nn.Module):
         else:
             raise ValueError(f"Invalid EfficientNet model name: {model_name}")
         # Remove the last fully connected layer
-        model = nn.Sequential(*list(model.children())[:-1])
+        model = nn.Sequential(*list(model.children())[:-1], nn.Flatten())
         return model
 
     def _get_vgg(self, model_name: str) -> nn.Module:
@@ -120,7 +120,7 @@ class ImageEncoder(nn.Module):
         else:
             raise ValueError(f"Invalid VGG model name: {model_name}")
         # Remove the classifier part
-        model = nn.Sequential(*list(model.children())[:-1])
+        model = nn.Sequential(*list(model.children())[:-1], nn.Flatten())
         return model
 
     def _get_inception_v3(self) -> nn.Module:
@@ -129,38 +129,7 @@ class ImageEncoder(nn.Module):
         """
         model = models.inception_v3(pretrained=self.pretrained, transform_input=False) #transform_input=False
         # Remove the auxiliary classifier.
-        model.AuxLogits = None
-        # Redefine the forward method to return only the primary output
-        def forward(x):
-            x = model.conv1(x)
-            x = model.bn1(x)
-            x = model.relu(x)
-            x = model.conv2(x)
-            x = model.bn2(x)
-            x = model.relu(x)
-            x = model.conv3(x)
-            x = model.bn3(x)
-            x = model.relu(x)
-            x = model.maxpool1(x)
-            x = model.conv4(x)
-            x = model.bn4(x)
-            x = model.relu(x)
-            x = model.conv5(x)
-            x = model.bn5(x)
-            x = model.relu(x)
-            x = model.maxpool2(x)
-            x = model.conv6(x)
-            x = model.bn6(x)
-            x = model.relu(x)
-            x = model.conv7(x)
-            x = model.bn7(x)
-            x = model.relu(x)
-            x = model.avgpool(x)
-            x = torch.flatten(x, 1)
-            x = model.dropout(x)
-            x = model.fc(x)
-            return x
-        model.forward = forward
+        # model.AuxLogits = None
         return model
 
     def _get_convnext_tiny(self):
@@ -168,7 +137,7 @@ class ImageEncoder(nn.Module):
         Returns a ConvNeXt-tiny model.
         """
         model = models.convnext_tiny(pretrained=self.pretrained)
-        model = nn.Sequential(*list(model.children())[:-1])  # Remove the classification head
+        model = nn.Sequential(*list(model.children())[:-1], nn.Flatten())  # Remove the classification head
         return model
 
     def _freeze_params(self) -> None:
@@ -211,13 +180,15 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size = 32
     img_size = 224  # Or 299 for InceptionV3
+    channels = 3  # RGB images
 
     # Create a dummy input tensor
-    dummy_input = torch.randn(batch_size, 3, img_size, img_size).to(device)
+    dummy_input = torch.randn(batch_size, channels, img_size, img_size).to(device)
 
     # Test with different models
     models_to_test = ['resnet18', 'resnet50', 'efficientnet_b0', 'vgg16', 'inception_v3', 'convnext_tiny']
     for model_name in models_to_test:
+        
         encoder = get_image_encoder(model_name=model_name, pretrained=True, fine_tune=False).to(device)
         encoder.eval()  # Set to evaluation mode
         with torch.no_grad():
