@@ -11,12 +11,16 @@ import torchvision.models as models
 import torch.nn.functional as F
 from torchsummary import summary
 import warnings
+from image_encoder import get_image_encoder
+from typing import Dict, Optional
 
 # Turn off all warnings
 warnings.filterwarnings("ignore")
 
+
+
 class Actor(nn.Module):
-    def __init__(self, model_name, height, width, in_channels, out_neurons, pretrained=True):
+    def __init__(self, model_name, height, width, in_channels, out_neurons, action_dim, pretrained=True):
         """
         Initialize the Actor model.
         Args:
@@ -24,7 +28,11 @@ class Actor(nn.Module):
             net', 'cae' : Custom).
             height (int): Height of the input image.
             width (int): Width of the input image.
-            in_channels (int): Number of input channels (if 2: grayscale canvas + positional map).
+            # in_channels (int): Number of input channels (if 2: grayscale canvas + positional map).
+            action_dim (int): Dimension of the action space (for previous action) (if 8: 4 for x1,y1,x2,y2,r,g,b, width).
+            
+            in_channels (int): Number of input channels, modifying it to include grayscale and rgb images.
+            
             out_neurons (int): Number of output values (if 6: x,y,r,g,b,width).
             pretrained (bool): Whether to use a pretrained model (default: True).
         """
@@ -34,11 +42,14 @@ class Actor(nn.Module):
         self.out_neurons = out_neurons
         self.height = height
         self.width = width
+        self.image_type = "RGB" if in_channels == 3 else "Grayscale"
+        self.action_dim = action_dim
 
         if model_name == "resnet":
             self.model = models.resnet18(pretrained=pretrained)
             self.model.conv1 = nn.Conv2d(self.in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
             self.model.fc = nn.Linear(self.model.fc.in_features, self.out_neurons)  #
+
         elif model_name == "efficientnet":
             self.model = models.efficientnet_b0(pretrained=pretrained)
             self.model.features[0][0] = nn.Conv2d(self.in_channels, 32, kernel_size=3, stride=2, padding=1, bias=False)
@@ -70,7 +81,7 @@ class Actor(nn.Module):
 # Example/test code (runs only when script is executed directly)
 if __name__ == "__main__":
     batch_size = 4
-    input_channels = 2
+    input_channels = 1  # 1 for grayscale, 3 for RGB
     output_neurons = 6
     height = 256
     width = 256
