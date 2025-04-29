@@ -1,146 +1,113 @@
 import torch
 import unittest
+import numpy as np
+from config import config
 from env.environment import PaintingEnv
-from models.ddpg import DDPGAgent  # Or your chosen RL algorithm
-from config import config  # Assuming you have a config.py
+from models.actor import Actor
+from models.critic import Critic
+from models.ddpg import DDPGAgent
+from utils.replay_buffer import ReplayBuffer
+from utils.noise import OUNoise
 import lpips
 import os
 
-class TestDeepRLPainter(unittest.TestCase):
-    """
-    Unit tests for the Deep RL Painter project.
-    """
-
+class TestDeepRLPipeline(unittest.TestCase):
     def setUp(self):
-        """
-        Set up common test objects.  This is run before each test.
-        """
-        self.config = config()  # Or create a simplified config for testing
-        self.config.target_image_path = 'deep_rl_painter/target.jpg'  # Make sure this exists
-        self.config.image_size = (256, 256)
-        self.config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.config.model_name = "resnet" # Or set to a default
-        self.config.actor_lr = 1e-4
-        self.config.critic_lr = 1e-3
+        self.device = config["device"]
+        self.image_size = config["image_size"]
+        self.in_channels = 3
+        self.action_dim = 6
 
-        # Create a dummy target image if it doesn't exist
-        if not os.path.exists(self.config.target_image_path):
-            dummy_target = torch.zeros(1, 3, self.config.image_size[0], self.config.image_size[1])
-            torch.save(dummy_target, 'deep_rl_painter/target.jpg')  #changed from .pt to .jpg
+        # Minimal config override
+        config["batch_size"] = 4
+        config["replay_buffer_size"] = 10
 
-        self.env = PaintingEnvironment(
-            target_image_path=self.config.target_image_path,
-            canvas_size=self.config.image_size,
-            max_strokes=10,  # Keep this small for testing
-            device=self.config.device
+        self.env = PaintingEnv(
+            target_image_path=config["target_image_path"],
+            canvas_size=self.image_size,
+            max_strokes=5,
+            device=self.device
+        )
+
+        self.actor = Actor(
+            image_encoder_model=config["model_name"],
+            image_encoder_model_2=config["model_name"],
+            pretrained=False,  # for test speed
+            out_neurons=self.action_dim,
+            in_channels=self.in_channels
+        )
+
+        self.critic = Critic(
+            image_encoder_model=config["model_name"],
+            image_encoder_model_2=config["model_name"],
+            pretrained=False,
+            out_neurons=1,
+            in_channels=self.in_channels
         )
 
         self.agent = DDPGAgent(
-            state_dim=self.env.observation_space.shape[0],
-            action_dim=self.env.action_space.shape[0],
-            actor_lr=self.config.actor_lr,
-            critic_lr=self.config.critic_lr,
-            gamma=0.99,
-            tau=0.005,
-            device=self.config.device,
-            model_name=self.config.model_name,
-            height=self.config.image_size[0],
-            width=self.config.image_size[1],
-            pretrained=False # Don't use pretrained for tests.
+            actor=self.actor,
+            critic=self.critic,
+            actor_target=self.actor,
+            critic_target=self.critic,
+            actor_optimizer=torch.optim.Adam(self.actor.parameters(), lr=1e-4),
+            critic_optimizer=torch.optim.Adam(self.critic.parameters(), lr=1e-3),
+            replay_buffer=ReplayBuffer(config["replay_buffer_size"]),
+            noise=OUNoise(self.action_dim),
+            config=config,
+            channels=self.in_channels
         )
 
-    def tearDown(self):
-        """
-        Clean up after each test.  For example, delete any files created.
-        """
-        pass # No need to delete dummy target.pt
-
-
-    def test_env_reset(self):
-        """
-        Test that the environment can be reset.
-        """
+    def test_env_reset_and_step(self):
         state = self.env.reset()
-        self.assertIsInstance(state, torch.Tensor)
-        self.assertEqual(state.shape, self.env.observation_space.shape)
+        self.assertIsInstance(state, np.ndarray)
+        self.assertEqual(state.shape, (2 * self.in_channels * self.image_size[0] * self.image_size[1],))
 
-    def test_env_step(self):
-        """
-        Test that the environment can take a step.
-        """
-        state = self.env.reset()
-        action = self.env.action_space.sample()  # Get a random action
-        reward_function = self.env.calculate_ssim_reward # Use a valid reward function.
-        lpips_fn = None # Only needed for LPIPS
-        next_state, reward, done, _ = self.env.step(action, reward_function, lpips_fn)
-
-        self.assertIsInstance(next_state, torch.Tensor)
-        self.assertEqual(next_state.shape, self.env.observation_space.shape)
-        self.assertIsInstance(reward, torch.Tensor)
-        self.assertEqual(reward.shape, (1,))  # Reward should be a scalar tensor
+        action = self.env.action_space.sample()
+        next_state, reward, done = self.env.step(action, lambda *a, **kw: 1.0, None)
+        self.assertIsInstance(next_state, np.ndarray)
+        self.assertIsInstance(reward, float)
         self.assertIsInstance(done, bool)
 
-    def test_agent_select_action(self):
-        """
-        Test that the agent can select an action.
-        """
+    def test_agent_action_shape(self):
         state = self.env.reset()
         action = self.agent.select_action(state)
-        self.assertIsInstance(action, torch.Tensor)
-        self.assertEqual(action.shape, (self.env.action_space.shape[0],))
+        self.assertEqual(action.shape, (self.action_dim,))
+        self.assertTrue(np.all(np.abs(action) <= 1))
 
-    def test_agent_update(self):
-        """
-        Test that the agent can update its parameters.
-        """
+    def test_agent_training_step(self):
         state = self.env.reset()
-        action = self.env.action_space.sample()
-        next_state, reward, done, _ = self.env.step(action, self.env.calculate_ssim_reward, None)
-        #Populate the replay buffer
-        self.agent.replay_buffer.push(state, action, next_state, reward, done)
-        for _ in range(self.config.batch_size):
-            self.agent.replay_buffer.push(next_state, action, next_state, reward, done) # fill up buffer
+        for _ in range(config["batch_size"] + 1):
+            action = self.agent.act(state)
+            next_state, reward, done = self.env.step(action, lambda *a, **kw: 1.0, None)
 
-        # Check that update does not raise an exception
+            self.agent.replay_buffer.store(
+                state.flatten(), 
+                action, 
+                float(reward), 
+                next_state.flatten(), 
+                float(done)
+            )
+            state = next_state
+
         try:
-            self.agent.update(self.agent.replay_buffer, self.config.batch_size)
+            self.agent.train()
         except Exception as e:
-            self.fail(f"agent.update() raised an exception: {e}")
+            self.fail(f"Agent training raised an exception: {e}")
 
-    def test_reward_functions(self):
-        """
-        Test the reward functions.
-        """
-        prev_canvas = torch.randn(2, 3, self.config.image_size[0], self.config.image_size[1]).to(self.config.device)
-        current_canvas = torch.randn(2, 3, self.config.image_size[0], self.config.image_size[1]).to(self.config.device)
-        target_canvas = torch.randn(2, 3, self.config.image_size[0], self.config.image_size[1]).to(self.config.device)
+    def test_reward_shapes(self):
+        from env.reward import calculate_ssim_reward, calculate_mse_reward, calculate_lpips_reward
 
-        # Ensure data is in the range [0, 1] for LPIPS
-        prev_canvas = (prev_canvas - prev_canvas.min()) / (prev_canvas.max() - prev_canvas.min())
-        current_canvas = (current_canvas - current_canvas.min()) / (current_canvas.max() - current_canvas.min())
-        target_canvas = (target_canvas - target_canvas.min()) / (target_canvas.max() - target_canvas.min())
+        B, C, H, W = 2, self.in_channels, *self.image_size
+        prev_canvas = torch.rand(B, C, H, W).to(self.device)
+        curr_canvas = torch.rand(B, C, H, W).to(self.device)
+        target_image = torch.rand(B, C, H, W).to(self.device)
 
+        self.assertEqual(calculate_ssim_reward(prev_canvas, curr_canvas, target_image).shape, (B, 1))
+        self.assertEqual(calculate_mse_reward(prev_canvas, curr_canvas, target_image).shape, (B, 1))
 
-        ssim_reward = self.env.calculate_ssim_reward(prev_canvas, current_canvas, target_canvas)
-        self.assertIsInstance(ssim_reward, torch.Tensor)
-        self.assertEqual(ssim_reward.shape, (2, 1))
+        lpips_fn = lpips.LPIPS(net='vgg').to(self.device)
+        self.assertEqual(calculate_lpips_reward(prev_canvas, curr_canvas, target_image, lpips_fn).shape, (B, 1))
 
-        mse_reward = self.env.calculate_mse_reward(prev_canvas, current_canvas, target_canvas)
-        self.assertIsInstance(mse_reward, torch.Tensor)
-        self.assertEqual(mse_reward.shape, (2, 1))
-
-        lpips_fn = lpips.LPIPS(net='vgg').to(self.config.device)
-        lpips_reward = self.env.calculate_lpips_reward(prev_canvas, current_canvas, target_canvas, lpips_fn)
-        self.assertIsInstance(lpips_reward, torch.Tensor)
-        self.assertEqual(lpips_reward.shape, (2, 1))
-    
-    def test_action_space_sample(self):
-        """
-        Test that the action space can be sampled.
-        """
-        action = self.env.action_space.sample()
-        self.assertIsInstance(action, torch.Tensor)
-        self.assertEqual(action.shape, (self.env.action_space.shape[0],)) # Shape must be correct
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
