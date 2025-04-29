@@ -29,7 +29,8 @@ class MergedNetwork(nn.Module):
                  use_custom_encoder_2,
                  custom_encoder,
                  custom_encoder_2,
-                 activation_function) -> None:
+                 activation_function,
+                 in_channels) -> None:
         """
         Args:
             image_encoder_model (str): Name of the CNN architecture to use for both image encoders
@@ -48,6 +49,7 @@ class MergedNetwork(nn.Module):
                 If provided, overrides image_encoder_model, pretrained, and fine_tune.
             activation_function (str): The activation function to use in the merged network.
                 Can be 'ReLU', 'Tanh', or 'LeakyReLU'.
+            in_channels (int): Number of input channels for the image encoders (e.g., 3 for RGB, 1 for grayscale).
         """
         super().__init__()
 
@@ -64,6 +66,7 @@ class MergedNetwork(nn.Module):
         self.merged_output_size = merged_output_size
         self.use_custom_encoder = use_custom_encoder
         self.use_custom_encoder_2 = use_custom_encoder_2
+        self.in_channels = in_channels
 
         self.custom_encoder = custom_encoder
         if self.use_custom_encoder_2 and not custom_encoder_2:
@@ -90,26 +93,30 @@ class MergedNetwork(nn.Module):
             if self.custom_encoder:
                 self.image_encoder_1 = get_image_encoder(
                     fine_tune=self.fine_tune_encoder_1,
-                    custom_model=self.custom_encoder
+                    custom_model=self.custom_encoder,
+                    in_channels=self.in_channels
                 )
         else:
             # Create two image encoders with the same architecture
             self.image_encoder_1 = get_image_encoder(
                 model_name=self.image_encoder_model,
                 pretrained=self.pretrained,
-                fine_tune=self.fine_tune_encoder_1
+                fine_tune=self.fine_tune_encoder_1,
+                in_channels=self.in_channels
             )
 
         if self.use_custom_encoder_2:
             self.image_encoder_2 = get_image_encoder(
                 fine_tune=self.fine_tune_encoder_2,
-                custom_model=self.custom_encoder_2
+                custom_model=self.custom_encoder_2,
+                in_channels=self.in_channels
             )
         else:
             self.image_encoder_2 = get_image_encoder(
                 model_name=self.image_encoder_model,
                 pretrained=self.pretrained,
-                fine_tune=self.fine_tune_encoder_2
+                fine_tune=self.fine_tune_encoder_2,
+                in_channels=self.in_channels
             )
 
         # Determine the output size of the individual encoders
@@ -132,7 +139,7 @@ class MergedNetwork(nn.Module):
             int: The output size of the encoder.
         """
         # Example input for size check
-        dummy_input = torch.randn(1, 3, 224, 224)  # Assume 224x224 input
+        dummy_input = torch.randn(1, self.in_channels, 224, 224)  # Assume 224x224 input
         if next(encoder.parameters()).is_cuda:
             dummy_input = dummy_input.to(next(encoder.parameters()).device)
 
@@ -186,7 +193,7 @@ class MergedNetwork(nn.Module):
 
         self.merged_network = nn.Sequential(*layers)
 
-    def forward(self, image1: torch.Tensor, image2: torch.Tensor, action_params: torch.Tensor) -> torch.Tensor:
+    def forward(self, image1: torch.Tensor, image2: torch.Tensor, action_params: torch.Tensor = None) -> torch.Tensor:
         """
         Forward pass through the dual image processor.
 
@@ -206,14 +213,12 @@ class MergedNetwork(nn.Module):
         if isinstance(features_2, tuple):
             features_2 = features_2[0]
 
-        # Flatten the features
-        # Might not be necessary depending on the encoder output
-        # features1 = torch.flatten(features1, start_dim=1)
-        # features2 = torch.flatten(features2, start_dim=1)
-
         # Concatenate the features
-        merged_features = torch.cat(
-            (features_1, features_2, action_params), dim=1)
+        if action_params is not None:
+            merged_features = torch.cat(
+                (features_1, features_2, action_params), dim=1)
+        else:
+            merged_features = torch.cat((features_1, features_2), dim=1)
 
         # Concatenate the features
         merged_features = torch.cat((features_1, features_2), dim=1)
@@ -229,12 +234,12 @@ class MergedNetwork(nn.Module):
         return output
 
 
-def create_dual_image_processor(image_encoder_model: str = 'resnet50',
+def create_merged_network(image_encoder_model: str = 'resnet50',
                                 image_encoder_model_2: str = 'resnet50',
                                 pretrained: bool = True,
                                 fine_tune_encoder: bool = True,
                                 fine_tune_encoder_2: bool = True,
-                                actor_network_input: int = 2,
+                                actor_network_input: int = 0,
                                 hidden_layers: List[int] = [
                                     512, 256, 128, 64, 32],
                                 merged_output_size: int = 6,
@@ -242,7 +247,8 @@ def create_dual_image_processor(image_encoder_model: str = 'resnet50',
                                 use_custom_encoder_2: bool = False,
                                 custom_encoder: nn.Module = None,
                                 custom_encoder_2: nn.Module = None,
-                                activation_function: str = 'ReLU') -> MergedNetwork:
+                                activation_function: str = 'ReLU',
+                                in_channels: int = 3) -> MergedNetwork:
     """
     Creates a MergedNetwork instance.
 
@@ -260,6 +266,7 @@ def create_dual_image_processor(image_encoder_model: str = 'resnet50',
         custom_encoder (nn.Module): A custom PyTorch model to use as the image encoder.
         custom_encoder_2 (nn.Module): A custom PyTorch model to use as the second image encoder.
         activation_function (str): The activation function to use ('ReLU', 'Tanh', or 'LeakyReLU').
+        in_channels (int): Number of input channels for the image encoders (e.g., 3 for RGB, 1 for grayscale).
 
     Returns:
         MergedNetwork: An instance of the MergedNetwork class.
@@ -278,7 +285,8 @@ def create_dual_image_processor(image_encoder_model: str = 'resnet50',
         use_custom_encoder_2=use_custom_encoder_2,
         custom_encoder=custom_encoder,
         custom_encoder_2=custom_encoder_2,
-        activation_function=activation_function
+        activation_function=activation_function,
+        in_channels=in_channels
     )
 
 if __name__ == '__main__':
@@ -286,16 +294,17 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size = 32
     img_size = 224
+    in_channels = 3  # Grayscale canvas
     actor_network_input = 10
 
     # Create dummy input tensors for two images
-    dummy_image1 = torch.randn(batch_size, 3, img_size, img_size).to(device)
-    dummy_image2 = torch.randn(batch_size, 3, img_size, img_size).to(device)
+    dummy_image1 = torch.randn(batch_size, in_channels, img_size, img_size).to(device)
+    dummy_image2 = torch.randn(batch_size, in_channels, img_size, img_size).to(device)
     # dummy_image2 = torch.randn(batch_size, 1, img_size, img_size).to(device)
     dummy_actor_params = torch.randn(batch_size, actor_network_input).to(device)
 
     # Create a MergedNetwork
-    processor = create_dual_image_processor(
+    processor = create_merged_network(
         image_encoder_model='resnet50',
         image_encoder_model_2='efficientnet_b0',
         pretrained=True,
@@ -304,7 +313,8 @@ if __name__ == '__main__':
         actor_network_input=actor_network_input,
         hidden_layers=[512, 256, 128],
         merged_output_size=10,
-        activation_function='ReLU'
+        activation_function='ReLU',
+        in_channels=in_channels
     ).to(device)
 
     processor.eval()
@@ -337,7 +347,7 @@ if __name__ == '__main__':
 
     custom_encoder = CustomEncoder().to(device)
     custom_encoder_2 = CustomEncoder().to(device)
-    processor_with_custom_encoder = create_dual_image_processor(
+    processor_with_custom_encoder = create_merged_network(
         use_custom_encoder=True,
         use_custom_encoder_2=True,
         custom_encoder=custom_encoder,

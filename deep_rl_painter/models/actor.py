@@ -1,97 +1,181 @@
-# Actor = Actor(state_dim, action_dims)   - in train.py
-
-""" Input: [state_dim]
-→ Hidden layers
-→ Output: [action_dim] = 2 (x and y direction) 
+""" 
+Input: input_image_1 (canvas), input_image_2 (target_image), action_input (action_space, x,y,r,g,b, width)
+Output: action (x,y,r,g,b, width)
 """
 
 import torch
 import torch.nn as nn
-import torchvision.models as models
-import torch.nn.functional as F
-from torchsummary import summary
 import warnings
-from image_encoder import get_image_encoder
-from typing import Dict, Optional
+from merge_network import create_merged_network
 
 # Turn off all warnings
 warnings.filterwarnings("ignore")
 
 
-
 class Actor(nn.Module):
-    def __init__(self, model_name, height, width, in_channels, out_neurons, action_dim, pretrained=True):
+    def __init__(self, image_encoder_model: str = 'resnet50',
+                 image_encoder_model_2: str = 'resnet50',
+                 pretrained: bool = True,
+                 fine_tune_encoder: bool = True,
+                 fine_tune_encoder_2: bool = True,
+                 actor_network_input: int = 6,  # 2 for x,y,r,g,b, width
+                 hidden_layers: list = [512, 256, 128, 64, 32],
+                 use_custom_encoder: bool = False,
+                 use_custom_encoder_2: bool = False,
+                 custom_encoder: nn.Module = None,
+                 custom_encoder_2: nn.Module = None,
+                 activation_function: str = 'ReLU',
+                 in_channels: int = 3,
+                 out_neurons: int = 6,
+                 ) -> None:
         """
         Initialize the Actor model.
         Args:
-            model_name (str): Name of the model architecture to use ('resnet', 'efficient
-            net', 'cae' : Custom).
-            height (int): Height of the input image.
-            width (int): Width of the input image.
-            # in_channels (int): Number of input channels (if 2: grayscale canvas + positional map).
-            action_dim (int): Dimension of the action space (for previous action) (if 8: 4 for x1,y1,x2,y2,r,g,b, width).
-            
-            in_channels (int): Number of input channels, modifying it to include grayscale and rgb images.
-            
-            out_neurons (int): Number of output values (if 6: x,y,r,g,b,width).
+            image_encoder_model (str): Name of the image encoder model architecture ('resnet', 'efficientnet', 'cae' : Custom).
+            image_encoder_model_2 (str): Name of the second image encoder model architecture ('resnet', 'efficientnet', 'cae' : Custom).
             pretrained (bool): Whether to use a pretrained model (default: True).
+            fine_tune_encoder (bool): Whether to fine-tune the encoder (default: True).
+            fine_tune_encoder_2 (bool): Whether to fine-tune the second encoder (default: True).
+            actor_network_input (int): Number of input features for the actor network.
+            hidden_layers (list): List of hidden layer sizes.
+            out_neurons (int): Number of output neurons.
+            in_channels (int): Number of input channels.
+            use_custom_encoder (bool): Whether to use a custom encoder.
+            use_custom_encoder_2 (bool): Whether to use a second custom encoder.
+            custom_encoder (nn.Module): Custom encoder model.
+            custom_encoder_2 (nn.Module): Second custom encoder model.
+            activation_function (str): Activation function to use ('ReLU', 'LeakyReLU', etc.).
         """
+
         super(Actor, self).__init__()
-        self.model_name = model_name
-        self.in_channels = in_channels
+        self.image_encoder_model = image_encoder_model
+        self.image_encoder_model_2 = image_encoder_model_2
+        self.pretrained = pretrained
+        self.fine_tune_encoder = fine_tune_encoder
+        self.fine_tune_encoder_2 = fine_tune_encoder_2
+        self.actor_network_input = actor_network_input
+        self.hidden_layers = hidden_layers
         self.out_neurons = out_neurons
-        self.height = height
-        self.width = width
-        self.image_type = "RGB" if in_channels == 3 else "Grayscale"
-        self.action_dim = action_dim
+        self.in_channels = in_channels
+        self.use_custom_encoder = use_custom_encoder
+        self.use_custom_encoder_2 = use_custom_encoder_2
+        self.custom_encoder = custom_encoder
+        self.custom_encoder_2 = custom_encoder_2
+        self.activation_function = activation_function
 
-        if model_name == "resnet":
-            self.model = models.resnet18(pretrained=pretrained)
-            self.model.conv1 = nn.Conv2d(self.in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-            self.model.fc = nn.Linear(self.model.fc.in_features, self.out_neurons)  #
+        self.model_name = image_encoder_model
+        self.model_name_2 = image_encoder_model_2
 
-        elif model_name == "efficientnet":
-            self.model = models.efficientnet_b0(pretrained=pretrained)
-            self.model.features[0][0] = nn.Conv2d(self.in_channels, 32, kernel_size=3, stride=2, padding=1, bias=False)
-            self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, self.out_neurons)  #
-        elif model_name == "cae":
-            self.model = nn.Sequential(
-                nn.Conv2d(self.in_channels, 16, kernel_size=3, stride=2, padding=1),
-                nn.ReLU(),
-                nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
-                nn.ReLU()
-            )
-        else:
-            raise ValueError(f"Invalid model name: {model_name}. Choose from 'resnet', 'efficientnet', or 'cae'.")
+        self.model = create_merged_network(
+            image_encoder_model=self.image_encoder_model,
+            image_encoder_model_2=self.image_encoder_model_2,
+            pretrained=self.pretrained,
+            fine_tune_encoder=self.fine_tune_encoder,
+            fine_tune_encoder_2=self.fine_tune_encoder_2,
+            actor_network_input=self.actor_network_input,
+            hidden_layers=self.hidden_layers,
+            merged_output_size=self.out_neurons,
+            use_custom_encoder=self.use_custom_encoder,
+            use_custom_encoder_2=self.use_custom_encoder_2,
+            custom_encoder=self.custom_encoder,
+            custom_encoder_2=self.custom_encoder_2,
+            activation_function=self.activation_function,
+            in_channels=self.in_channels,
+        )
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
+        self.to(self.device)
 
-    def forward(self, x):
-        if self.model_name in ["resnet", "efficientnet"]:
-            out = self.model(x)
-        elif self.model_name == "cae":
-            out = self.model(x)
+    def forward(self, input_image_1, input_image_2, action_input):
+        """
+        Forward pass through the model.
+        Args:
+            input_image_1 (torch.Tensor): First (canvas) input image tensor.
+            input_image_2 (torch.Tensor): Second (target_image) input image tensor.
+            action_input (torch.Tensor): Action input tensor.
+        Returns:
+            torch.Tensor: Output of the model.
+        """
+        out = self.model(input_image_1, input_image_2, action_input)
         return out
 
     def save_model(self, path):
+        """
+        Save the model state dictionary to a file.
+        Args:
+            path (str): Path to save the model.
+        """
         torch.save(self.model.state_dict(), path)
 
     def load_model(self, path):
+        """
+        Load the model state dictionary from a file.
+        Args:
+            path (str): Path to load the model from.
+        """
         self.model.load_state_dict(torch.load(path, map_location=self.device))
+        self.model.to(self.device)
 
 
 # Example/test code (runs only when script is executed directly)
 if __name__ == "__main__":
-    batch_size = 4
-    input_channels = 1  # 1 for grayscale, 3 for RGB
-    output_neurons = 6
-    height = 256
-    width = 256
+    # Example parameters
+    image_encoder_model = 'resnet18'
+    image_encoder_model_2 = 'resnet18'
+    pretrained = True
+    fine_tune_encoder = True
+    fine_tune_encoder_2 = True
+    actor_network_input = 6  # Example input size
+    hidden_layers = [512, 256, 128, 64, 32]
+    out_neurons = 6
+    in_channels = 3
 
-    input_image = torch.randn(batch_size, input_channels, height, width)
+    # Create an instance of the Actor model
+    actor_model = Actor(image_encoder_model=image_encoder_model,
+                        image_encoder_model_2=image_encoder_model_2,
+                        pretrained=pretrained,
+                        fine_tune_encoder=fine_tune_encoder,
+                        fine_tune_encoder_2=fine_tune_encoder_2,
+                        actor_network_input=actor_network_input,
+                        hidden_layers=hidden_layers,
+                        out_neurons=out_neurons,
+                        in_channels=in_channels)
 
-    # Test each model
-    for model_name in ["resnet", "efficientnet", "cae"]:
-        print(f"\n--- Testing {model_name} ---")
-        model = Actor(model_name, height, width, input_channels, output_neurons, pretrained=False)
-        summary(model, input_image.shape[1:])
-        output = model(input_image)
-        print(f"{model_name} output shape:", output.shape)
+    # Print the model summary
+    # print(actor_model)
+
+    # Print the model summary using torchsummary
+    # summary(actor_model, (in_channels, 224, 224), batch_size=1, device="cuda" if torch.cuda.is_available() else "cpu")
+    # Create a dummy input tensor
+    dummy_input = torch.randn(1, in_channels, 224, 224).to(actor_model.device)
+    dummy_input_2 = torch.randn(
+        1, in_channels, 224, 224).to(actor_model.device)
+    dummy_action_input = torch.randn(
+        1, actor_network_input).to(actor_model.device)
+    # Forward pass through the model
+    output = actor_model(dummy_input, dummy_input_2, dummy_action_input)
+    print(f"Output shape: {output.shape}")
+
+    #  save and load model works
+    # Save the model
+    # save_path = "test/actor_model.pth"
+    # actor_model.save_model(save_path)
+    # print(f"Model saved to {save_path}")
+    # # Load the model
+    # loaded_actor_model = Actor(image_encoder_model=image_encoder_model,
+    #                             image_encoder_model_2=image_encoder_model_2,
+    #                             pretrained=pretrained,
+    #                             fine_tune_encoder=fine_tune_encoder,
+    #                             fine_tune_encoder_2=fine_tune_encoder_2,
+    #                             actor_network_input=actor_network_input,
+    #                             hidden_layers=hidden_layers,
+    #                             out_neurons=out_neurons,
+    #                             in_channels=in_channels)
+    # loaded_actor_model.load_model(save_path)
+    # print(f"Model loaded from {save_path}")
+    # # Forward pass through the loaded model
+    # loaded_output = loaded_actor_model(dummy_input, dummy_input_2, dummy_action_input)
+    # print(f"Loaded output shape: {loaded_output.shape}")
+    # # Check if the outputs are close
+    # assert torch.allclose(output, loaded_output, atol=1e-6), "Loaded model output does not match the original model output."
+    # print("Loaded model output matches the original model output.")

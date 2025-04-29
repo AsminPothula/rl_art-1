@@ -1,119 +1,178 @@
+""" 
+Input: input_image_1 (canvas), input_image_2 (target_image), action_input (action_space, x,y,r,g,b, width)
+Output: Q_value
+"""
+
 import torch
 import torch.nn as nn
-import torchvision.models as models
 import warnings
+from merge_network import create_merged_network
 
 # Turn off all warnings
 warnings.filterwarnings("ignore")
 
+
 class Critic(nn.Module):
-    def __init__(self, model_name, height, width, in_channels, action_dim, pretrained=True):
+    def __init__(self, image_encoder_model: str = 'resnet50',
+                 image_encoder_model_2: str = 'resnet50',
+                 pretrained: bool = True,
+                 fine_tune_encoder: bool = True,
+                 fine_tune_encoder_2: bool = True,
+                 actor_network_input: int = 6,  # 2 for x,y,r,g,b, width
+                 hidden_layers: list = [512, 256, 128, 64, 32],
+                 use_custom_encoder: bool = False,
+                 use_custom_encoder_2: bool = False,
+                 custom_encoder: nn.Module = None,
+                 custom_encoder_2: nn.Module = None,
+                 activation_function: str = 'ReLU',
+                 in_channels: int = 3,
+                 out_neurons: int = 1,
+                 ) -> None:
         """
-        Initialize the Critic model.
+        Initialize the Actor model.
         Args:
-            model_name (str): Name of the base model architecture ('resnet', 'efficientnet', 'cae' : Custom).
-            height (int): Height of the input image.
-            width (int): Width of the input image.
-            in_channels (int): Number of input channels (if 1: grayscale canvas).
-            Or I guess we can keep it just one channel, and use the action dims for other inputs.
-            action_dim (int): Dimension of the action space. (included in the in_channels). 
-            if 8 in this case: 4 for x1,y1,x2,y2,r,g,b, width.
-            if 4 for x1,y1,x2,y2
-            pretrained (bool): Whether to use a pretrained model (default: True) for resnet/efficientnet.
+            image_encoder_model (str): Name of the image encoder model architecture ('resnet', 'efficientnet', 'cae' : Custom).
+            image_encoder_model_2 (str): Name of the second image encoder model architecture ('resnet', 'efficientnet', 'cae' : Custom).
+            pretrained (bool): Whether to use a pretrained model (default: True).
+            fine_tune_encoder (bool): Whether to fine-tune the encoder (default: True).
+            fine_tune_encoder_2 (bool): Whether to fine-tune the second encoder (default: True).
+            hidden_layers (list): List of hidden layer sizes.
+            out_neurons (int): Number of output neurons.
+            in_channels (int): Number of input channels.
+            use_custom_encoder (bool): Whether to use a custom encoder.
+            use_custom_encoder_2 (bool): Whether to use a second custom encoder.
+            custom_encoder (nn.Module): Custom encoder model.
+            custom_encoder_2 (nn.Module): Second custom encoder model.
+            activation_function (str): Activation function to use ('ReLU', 'LeakyReLU', etc.).
         """
+
         super(Critic, self).__init__()
-        self.model_name = model_name
+        self.image_encoder_model = image_encoder_model
+        self.image_encoder_model_2 = image_encoder_model_2
+        self.pretrained = pretrained
+        self.fine_tune_encoder = fine_tune_encoder
+        self.fine_tune_encoder_2 = fine_tune_encoder_2
+        self.hidden_layers = hidden_layers
+        self.out_neurons = out_neurons
         self.in_channels = in_channels
-        self.action_dim = action_dim
-        self.height = height
-        self.width = width
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.use_custom_encoder = use_custom_encoder
+        self.use_custom_encoder_2 = use_custom_encoder_2
+        self.custom_encoder = custom_encoder
+        self.custom_encoder_2 = custom_encoder_2
+        self.activation_function = activation_function
+        self.actor_network_input = actor_network_input
+
+        self.model_name = image_encoder_model
+        self.model_name_2 = image_encoder_model_2
+
+        self.model = create_merged_network(
+            image_encoder_model=self.image_encoder_model,
+            image_encoder_model_2=self.image_encoder_model_2,
+            pretrained=self.pretrained,
+            fine_tune_encoder=self.fine_tune_encoder,
+            fine_tune_encoder_2=self.fine_tune_encoder_2,
+            actor_network_input=self.actor_network_input,
+            hidden_layers=self.hidden_layers,
+            merged_output_size=self.out_neurons,
+            use_custom_encoder=self.use_custom_encoder,
+            use_custom_encoder_2=self.use_custom_encoder_2,
+            custom_encoder=self.custom_encoder,
+            custom_encoder_2=self.custom_encoder_2,
+            activation_function=self.activation_function,
+            in_channels=self.in_channels,
+        )
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
 
-        if model_name == "resnet":
-            self.feature_extractor = models.resnet18(pretrained=pretrained)
-            self.feature_extractor.conv1 = nn.Conv2d(self.in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-            # Remove the final fully connected layer
-            num_features = self.feature_extractor.fc.in_features
-            self.feature_extractor.fc = nn.Identity()
-            self.fc = nn.Sequential(
-                nn.Linear(num_features + action_dim, 512),
-                nn.ReLU(),
-                nn.Linear(512, 1)  # Output a single Q-value
-            )
-        elif model_name == "efficientnet":
-            self.feature_extractor = models.efficientnet_b0(pretrained=pretrained)
-            self.feature_extractor.features[0][0] = nn.Conv2d(self.in_channels, 32, kernel_size=3, stride=2, padding=1, bias=False)
-            # Remove the final classifier layer
-            num_features = self.feature_extractor.classifier[1].in_features
-            self.feature_extractor.classifier = nn.Identity()
-            self.fc = nn.Sequential(
-                nn.Linear(num_features + action_dim, 512),
-                nn.ReLU(),
-                nn.Linear(512, 1)  # Output a single Q-value
-            )
-        elif model_name == "cae":
-            self.feature_extractor = nn.Sequential(
-                nn.Conv2d(self.in_channels, 16, kernel_size=3, stride=2, padding=1),
-                nn.ReLU(),
-                nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
-                nn.ReLU(),
-                nn.Flatten()
-            )
-            # Calculate the output size of the convolutional layers
-            with torch.no_grad():
-                dummy_input = torch.randn(1, in_channels, height, width)
-                features_dim = self.feature_extractor(dummy_input).shape[1]
-            self.fc = nn.Sequential(
-                nn.Linear(features_dim + action_dim, 256),
-                nn.ReLU(),
-                nn.Linear(256, 1)  # Output a single Q-value
-            )
-        else:
-            raise ValueError(f"Invalid model name: {model_name}. Choose from 'resnet', 'efficientnet', or 'cae'.")
-
-    def forward(self, state, action):
-        if self.model_name in ["resnet", "efficientnet"]:
-            features = self.feature_extractor(state)
-            features = torch.flatten(features, 1)
-        elif self.model_name == "cae":
-            features = self.feature_extractor(state)
-        else:
-            raise NotImplementedError
-
-        # Concatenate the features and the action
-        combined_input = torch.cat([features, action], dim=1)
-        q_value = self.fc(combined_input)
-        return q_value
+    def forward(self, input_image_1, input_image_2, action_input):
+        """
+        Forward pass through the model.
+        Args:
+            input_image_1 (torch.Tensor): First (canvas) input image tensor.
+            input_image_2 (torch.Tensor): Second (target_image) input image tensor.
+            action_input (torch.Tensor): Action input tensor.
+        Returns:
+            torch.Tensor: Output of the model.
+        """
+        out = self.model(input_image_1, input_image_2, action_input)
+        return out
 
     def save_model(self, path):
-        torch.save(self.state_dict(), path)
+        """
+        Save the model state dictionary to a file.
+        Args:
+            path (str): Path to save the model.
+        """
+        torch.save(self.model.state_dict(), path)
 
     def load_model(self, path):
-        self.load_state_dict(torch.load(path, map_location=self.device))
+        """
+        Load the model state dictionary from a file.
+        Args:
+            path (str): Path to load the model from.
+        """
+        self.model.load_state_dict(torch.load(path, map_location=self.device))
+        self.model.to(self.device)
 
 
-if __name__ == '__main__':
-    model_name = "resnet"
-    height = 64
-    width = 64
+# Example/test code (runs only when script is executed directly)
+if __name__ == "__main__":
+    # Example parameters
+    image_encoder_model = 'resnet18'
+    image_encoder_model_2 = 'resnet18'
+    pretrained = True
+    fine_tune_encoder = True
+    fine_tune_encoder_2 = True
+    actor_network_input = 6  # Example input size
+    hidden_layers = [512, 256, 128, 64, 32]
+    out_neurons = 1
     in_channels = 3
-    in_channels = 1
-    action_dim = 8
-    batch_size = 2
 
-    critic = Critic(model_name, height, width, in_channels, action_dim)
-    print(f"Critic ({model_name}): {critic}")
+    # Create an instance of the Actor model
+    critic_model = Critic(image_encoder_model=image_encoder_model,
+                        image_encoder_model_2=image_encoder_model_2,
+                        pretrained=pretrained,
+                        fine_tune_encoder=fine_tune_encoder,
+                        fine_tune_encoder_2=fine_tune_encoder_2,
+                        hidden_layers=hidden_layers,
+                        out_neurons=out_neurons,
+                        in_channels=in_channels)
 
-    state = torch.randn(batch_size, in_channels, height, width)
-    action = torch.randn(batch_size, action_dim)
-    q_value = critic(state, action)
-    print(f"Q-value output shape: {q_value.shape}\nExample: {q_value}")
+    # Print the model summary
+    # print(actor_model)
 
-    save_path = "critic_test.pth"
-    critic.save_model(save_path)
-    loaded_critic = Critic(model_name, height, width, in_channels, action_dim, pretrained=False)
-    loaded_critic.load_model(save_path)
-    loaded_q_value = loaded_critic(state, action)
-    assert torch.allclose(q_value, loaded_q_value, atol=1e-6)
-    print(f"Model saved and loaded successfully from {save_path}.")
+    # Print the model summary using torchsummary
+    # summary(actor_model, (in_channels, 224, 224), batch_size=1, device="cuda" if torch.cuda.is_available() else "cpu")
+    # Create a dummy input tensor
+    dummy_input = torch.randn(1, in_channels, 224, 224).to(critic_model.device)
+    dummy_input_2 = torch.randn(
+        1, in_channels, 224, 224).to(critic_model.device)
+    dummy_action_input = torch.randn(1, actor_network_input).to(critic_model.device)
+    # Forward pass through the model
+    output = critic_model(dummy_input, dummy_input_2, dummy_action_input)
+    print(f"Output shape: {output.shape}")
+
+    #  save and load model works
+    # Save the model
+    # save_path = "test/critic_model.pth"
+    # critic_model.save_model(save_path)
+    # print(f"Model saved to {save_path}")
+    # # Load the model
+    # loaded_critic_model = Critic(image_encoder_model=image_encoder_model,
+    #                             image_encoder_model_2=image_encoder_model_2,
+    #                             pretrained=pretrained,
+    #                             actor_network_input=actor_network_input,
+    #                             fine_tune_encoder=fine_tune_encoder,
+    #                             fine_tune_encoder_2=fine_tune_encoder_2,
+    #                             hidden_layers=hidden_layers,
+    #                             out_neurons=out_neurons,
+    #                             in_channels=in_channels)
+    # loaded_critic_model.load_model(save_path)
+    # print(f"Model loaded from {save_path}")
+    # # Forward pass through the loaded model
+    # loaded_output = loaded_critic_model(dummy_input, dummy_input_2, dummy_action_input)
+    # print(f"Loaded output shape: {loaded_output.shape}")
+    # # Check if the outputs are close
+    # assert torch.allclose(output, loaded_output, atol=1e-6), "Loaded model output does not match the original model output."
+    # print("Loaded model output matches the original model output.")
