@@ -247,7 +247,7 @@ def create_merged_network(image_encoder_model: str = 'resnet50',
                                 use_custom_encoder_2: bool = False,
                                 custom_encoder: nn.Module = None,
                                 custom_encoder_2: nn.Module = None,
-                                activation_function: str = 'ReLU',
+                                activation_function: str = 'LeakyReLU',
                                 in_channels: int = 3) -> MergedNetwork:
     """
     Creates a MergedNetwork instance.
