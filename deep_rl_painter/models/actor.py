@@ -6,7 +6,7 @@ Output: action (x,y,r,g,b, width)
 import torch
 import torch.nn as nn
 import warnings
-from merge_network import create_merged_network
+from .merge_network import create_merged_network
 
 # Turn off all warnings
 warnings.filterwarnings("ignore")
@@ -36,7 +36,7 @@ class Actor(nn.Module):
             pretrained (bool): Whether to use a pretrained model (default: True).
             fine_tune_encoder (bool): Whether to fine-tune the encoder (default: True).
             fine_tune_encoder_2 (bool): Whether to fine-tune the second encoder (default: True).
-            actor_network_input (int): Number of input features for the actor network.
+            actor_network_input (int): Number of input features for the actor network - number of non image inputs that get concatenated with the image features. 
             hidden_layers (list): List of hidden layer sizes.
             out_neurons (int): Number of output neurons.
             in_channels (int): Number of input channels.
