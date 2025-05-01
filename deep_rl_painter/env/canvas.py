@@ -15,7 +15,7 @@ def init_canvas(image_shape: Tuple[int, int] | Tuple[int, int, int],
                 color: Optional[Tuple[int, int, int] | int] = None) -> np.ndarray:
     """
     Initializes a canvas with the given image shape and optional background color.
-
+    Defaults to black for grayscale and RGB canvases.
     Args:
         image_shape (Tuple[int, int] | Tuple[int, int, int]): A tuple representing the
             height and width (and optionally channels) of the canvas. For example:

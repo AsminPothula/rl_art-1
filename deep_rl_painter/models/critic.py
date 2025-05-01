@@ -13,18 +13,19 @@ warnings.filterwarnings("ignore")
 
 
 class Critic(nn.Module):
-    def __init__(self, image_encoder_model: str = 'resnet50',
+    def __init__(self, 
+                 image_encoder_model: str = 'resnet50',
                  image_encoder_model_2: str = 'resnet50',
                  pretrained: bool = True,
                  fine_tune_encoder: bool = True,
                  fine_tune_encoder_2: bool = True,
-                 actor_network_input: int = 6,  # 2 for x,y,r,g,b, width
+                 actor_network_input: int = 12,  # actor_network_input*2 
                  hidden_layers: list = [512, 256, 128, 64, 32],
                  use_custom_encoder: bool = False,
                  use_custom_encoder_2: bool = False,
                  custom_encoder: nn.Module = None,
                  custom_encoder_2: nn.Module = None,
-                 activation_function: str = 'ReLU',
+                 activation_function: str = 'LeakyReLU',
                  in_channels: int = 3,
                  out_neurons: int = 1,
                  ) -> None:
