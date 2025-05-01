@@ -1,3 +1,11 @@
+"""
+Configuration file for the painting agent.
+This file contains all the hyperparameters and settings for the training and evaluation of the agent.
+
+TODO:
+- Add more parameters for the neural networks
+"""
+
 import torch
 config = {
     # training setup
