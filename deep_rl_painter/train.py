@@ -16,18 +16,23 @@ Inputs:
 
 Outputs:
     - Trained Actor and Critic models saved to disk
-"""
 
+TODO:
+    - FIX THE DDPG AGENT
+    - Add logging for training progress
+    - Add hyperparameter tuning options
+    - Consider using a learning rate scheduler for optimizers
+"""
+import os
 import torch
 import numpy as np
-import os
 from collections import deque
 from env.environment import PaintingEnv
 from models.actor import Actor
 from models.critic import Critic
 from models.ddpg import DDPGAgent
-from utils.replay_buffer import ReplayBuffer
 from utils.noise import OUNoise
+from utils.replay_buffer import ReplayBuffer
 
 
 def train(config):
@@ -48,8 +53,9 @@ def train(config):
         device=config["device"]
     )
 
-    # don't know why this is needed
-    target_image = env.get_target_tensor().to(config["device"])
+    # Load target image
+    # target_image needs to be of dimensions (batch=1, channels, height, width)
+    target_image = torch.tensor(env.target_image).unsqueeze(0).to(config["device"])
 
     # Initialize Actor & Critic networks (main and target)
     actor = Actor(
@@ -156,8 +162,9 @@ def train(config):
 
         # Periodically save model checkpoints
         if (episode + 1) % config["save_every"] == 0:
-            torch.save(actor.state_dict(), f"trained_models/actor_{episode + 1}.pth")
-            torch.save(critic.state_dict(), f"trained_models/critic_{episode + 1}.pth")
+            torch.save(actor.state_dict(),
+                       f"trained_models/actor_{episode + 1}.pth")
+            torch.save(critic.state_dict(),
+                       f"trained_models/critic_{episode + 1}.pth")
 
     print("Training complete.")
-
