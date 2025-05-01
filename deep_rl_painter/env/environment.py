@@ -1,4 +1,21 @@
-# needs to be reviewed - add proper comments
+"""
+Painting Environment for Reinforcement Learning
+This environment simulates a painting task where an agent learns to paint a target image
+using strokes. The agent receives a reward based on how closely its painting matches the target image.
+
+TODO:
+- Add more detailed docstrings and comments.
+- Implement the reward function in a separate module.
+- Add more error handling and validation for inputs.
+- Optimize the canvas update and rendering process.
+- Add more visualization options for the canvas.
+- Implement a more sophisticated action space (e.g., different stroke types).
+- Fix the Observation space
+- Make this compatible with the rest of the code
+- Add more tests and examples for usage.
+- Make this compatible for rgb and grayscale images
+"""
+
 import os
 import gym
 import numpy as np
@@ -7,73 +24,103 @@ import torch
 from gym import spaces
 from .canvas import init_canvas, update_canvas
 from .reward import calculate_reward
+import pdb
+from typing import Tuple
 
 
 class PaintingEnv(gym.Env):
-    def __init__(self, target_image_path, canvas_size, max_strokes, device):
+    def __init__(self, target_image_path: str, canvas_size: Tuple[int, int], canvas_channels: int, max_strokes: int, device: str):
+        """
+        Initializes the Painting Environment.
+        Args:
+            target_image_path (str): Path to the target image.
+            canvas_size (tuple): Size of the canvas (height, width).
+            canvas_channels (int): Number of channels in the canvas (1 for grayscale, 3 for RGB).
+            max_strokes (int): Maximum number of strokes allowed.
+            device (torch.device): Device to run the computations on (CPU or GPU).
+
+        # If channels is 1, use grayscale canvas (h, w) else (h, w, c)
+        """
         super(PaintingEnv, self).__init__()
 
         self.device = device
         self.canvas_size = canvas_size
         self.max_strokes = max_strokes
-
-        self.target_image = self.load_image(target_image_path)
-        self.canvas = init_canvas(self.canvas_size)
-        self.center = np.array(
-            [self.canvas.shape[1] // 2, self.canvas.shape[0] // 2])
+        self.target_image_path = target_image_path
+        self.channels = canvas_channels
+        # target image is a numpy array of shape (H, W, C)
+        self.target_image = self.load_image()
+        self.center = np.array([self.canvas.shape[0], self.canvas.shape[1]]) // 2
         self.radius = min(self.canvas.shape[0], self.canvas.shape[1]) // 2
-        # Initialize the starting point on the circumference of the circle
-        self.current_point = self.random_circle_point()
-
-        self.used_strokes = 0
 
         # I dont understand what these are - Keshav
-        self.action_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
-        self.observation_space = spaces.Box(
-            low=0, high=1.0, shape=(3, *self.canvas_size), dtype=np.float32
-        )
+        # action_space means the action space of the environment
+        # observation_space means the observation space of the environment
+        # action_space -> [2] (x, y) vector for the direction of the stroke
+        # action_space -> [6] (x, y, r, g, b, w) vector for the color of the stroke
+        # observation_space -> [3, H, W] (3 channels for RGB image)
 
-    def load_image(self, path):
-        # Load the image in grayscale and resize it to the canvas size
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Image file {path} not found.")
-        if not path.lower().endswith(('.png', '.jpg', '.jpeg')):
+        # self.action_space = spaces.Box(
+        #     low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
+        # self.observation_space = spaces.Box(
+        #     low=0, high=1.0, shape=(3, *self.canvas_size), dtype=np.float32
+        # )
+        self._initialize()
+
+    def _initialize(self):
+        """
+        Initializes the environment.
+        Sets up the canvas, current point (starting point) and used_strokes (number of strokes used).
+        """
+
+        if self.channels == 1: # Grayscale canvas
+            self.canvas = init_canvas(self.canvas_size)
+        else: # RGB canvas
+            self.canvas = init_canvas(
+                (self.canvas_size[0], self.canvas_size[1], self.channels))
+        self.current_point = self.random_circle_point()
+        self.used_strokes = 0
+
+    def load_image(self):
+        """
+        Loads an image from the given path and resizes it to the canvas size.
+        Returns:
+            img (numpy.ndarray): Loaded and resized image. (H, W, C)
+        Raises:
+            FileNotFoundError: If the image file is not found.
+            ValueError: If the image format is not supported.
+        """
+        if not os.path.exists(self.target_image_path):
+            raise FileNotFoundError(f"Image file {self.target_image_path} not found.")
+        if not self.target_image_path.lower().endswith(('.png', '.jpg', '.jpeg')):
             raise ValueError(
-                f"Unsupported image format: {path}. Please use PNG or JPG.")
-        # Read the image in grayscale, we can add support for color images later
-        # img -> [H, W, C] -> [H, W] (grayscale), numpy array, dtype=np.uint8
-        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+                f"Unsupported image format: {self.target_image_path}. Please use PNG or JPG.")
+
+        if self.channels == 1:
+            img = cv2.imread(self.target_image_path, cv2.IMREAD_GRAYSCALE)
+        else:
+            img = cv2.imread(self.target_image_path, cv2.IMREAD_COLOR)
         img = cv2.resize(
             img, (self.canvas_size[1], self.canvas_size[0]), interpolation=cv2.INTER_AREA)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img
 
     def random_circle_point(self):
-        """Generates a random point on the circumference of a circle. As initial point."""
+        """
+        Generates a random point on the circumference of a circle. As initial point.
+        Returns:
+            (int, int): Random point on the circumference of the circle.
+        """
         theta = np.random.uniform(0, 2 * np.pi)
-        return (self.center + self.radius * np.array([np.cos(theta), np.sin(theta)])).astype(int)
-
-    def add_position_channels(self, canvas):
-        """Adds a single position map channel to the grayscale canvas."""
-        # canvas -> [H, W] (grayscale), numpy array, dtype=np.uint8
-        # position_map -> [H, W] (position map), numpy array, dtype=np.float32
-        h, w = canvas.shape
-        position_map = np.zeros((h, w), dtype=np.float32)
-        # Random value chosen, later we can modify it to say
-        # the number of times the point has been used
-        position_map[self.current_point[1], self.current_point[0]] = 100.0
-        # shape [2, H, W]
-        stacked = np.stack([canvas, position_map], axis=0).astype(np.float32)
-        return stacked
+        out = (self.center + self.radius * np.array([np.cos(theta), np.sin(theta)])).astype(int)
+        print(f"Random circle point: {out}")
+        return out
 
     def to_tensor(self, img):
         """Converts [H,W] numpy array to [1,C,H,W] normalized tensor with position encodings."""
         return torch.tensor(img).unsqueeze(0).to(self.device)  # [1, C, H, W]
 
-    # I dont understand why we have a lpips_fn here
-    # Also what exactly is the reward function?
-    # Is it string or a function? - Keshav
-    def step(self, action, reward_function, lpips_fn=None):
+    def step(self, action):
         """
         Takes a step in the environment using the given action.
         The action is a 2D vector representing the direction of the stroke.
@@ -100,25 +147,24 @@ class PaintingEnv(gym.Env):
 
         # Not sure if this is correct - Keshav
         reward = calculate_reward(
-            prev_tensor, current_tensor, target_tensor, reward_function, lpips_fn)
+            prev_tensor, current_tensor, target_tensor, device=self.device)
 
         # Not sure if this is correct - Keshav
         done = self.used_strokes >= self.max_strokes
         next_state = self.to_tensor(self.canvas).squeeze(
             0).cpu().numpy().flatten()
 
-        # Not sure if this is correct - Keshav
-        # Return flattened canvas with positional channels — shape (3, H, W) → flattened (196608,)
-        flattened_state = self.add_position_channels(
-            self.canvas).astype(np.float32).flatten()
-        return flattened_state, reward.item(), done
+        # No more flattening - Keshav
+        return self.canvas, reward.item(), done
 
-    # Why do we need this? - Keshav
     def reset(self):
-        self.canvas = init_canvas(self.canvas_size)
-        self.current_point = self.random_circle_point()
-        self.used_strokes = 0
-        return self.add_position_channels(self.canvas).astype(np.float32).flatten()
+        """
+        Resets the environment to its initial state.
+        Returns:
+            canvas (numpy.ndarray): The initial canvas state.
+        """
+        self._initialize()
+        return self.canvas
 
     """def render(self, mode='human'):
         cv2.imshow('Canvas', self.canvas)
@@ -136,3 +182,42 @@ class PaintingEnv(gym.Env):
 
     def close(self):
         cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    # Example usage with the debugger
+    target_path = '../target.jpg'
+    canvas_size = (64, 64)
+    max_strokes = 10
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    try:
+        env = PaintingEnv(target_path, canvas_size, max_strokes, device)
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        exit()
+    except ValueError as e:
+        print(f"Error: {e}")
+        exit()
+
+    obs = env.reset()
+    print("Initial observation shape:", obs.shape)
+
+    for i in range(5):
+        # Generate a random action
+        action = env.action_space.sample()
+        print(f"Step {i+1}: Action = {action}")
+
+        # Set a breakpoint here to inspect variables
+        pdb.set_trace()
+
+        next_obs, reward, done, _ = env.step(action, calculate_reward)
+        print("Next observation shape:", next_obs.shape)
+        print("Reward:", reward)
+        print("Done:", done)
+
+        if done:
+            print("Episode finished.")
+            break
+
+    env.close()

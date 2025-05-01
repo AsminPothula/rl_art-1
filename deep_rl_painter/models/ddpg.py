@@ -37,6 +37,7 @@ class DDPGAgent:
         self.config = config
         self.channels = channels
 
+        # Initialize target networks with the same weights as the main networks
         self.actor_target.load_state_dict(actor.state_dict())
         self.critic_target.load_state_dict(critic.state_dict())
 
@@ -64,7 +65,7 @@ class DDPGAgent:
         self.actor.train()
         return np.clip(action, -1, 1)
 
-    def act(self, canvas, target_image, prev_action, noise_scale=0.0):
+    def act(self, canvas, target_image, prev_action, noise_scale=0.01):
         """
         Select an action and apply Ornstein-Uhlenbeck exploration noise.
         Used in train.py
@@ -74,7 +75,8 @@ class DDPGAgent:
         """
         action = self.select_action(canvas, target_image, prev_action)
         action += self.noise.sample() * noise_scale
-        return np.clip(action, -1, 1)
+        # return np.clip(action, -1, 1) # Uncomment if you want to clip the action, but it may not be necessary
+        return action
 
     def update_actor_critic(self, target_image):
         """

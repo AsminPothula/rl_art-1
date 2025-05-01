@@ -1,5 +1,5 @@
 __pycache__/
 *.png
 *.pyc
-
+deel_rl_painter/logs/*
 *.pth
