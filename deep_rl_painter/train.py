@@ -49,6 +49,7 @@ def train(config):
         max_strokes=config["max_steps"],
         device=config["device"]
     )
+
     target_image = env.get_target_tensor().to(config["device"])
 
     # Model input/output dimensions
