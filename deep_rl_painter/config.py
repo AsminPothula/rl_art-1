@@ -1,19 +1,20 @@
 import torch
 config = {
     # training setup
+    # True for training, False for production mode
+    "train": True,
     "seed": 42,
     "episodes": 50,                          # change to 500 or more later
-    "max_steps": 50,                         # is this the number of strokes?
 
     # painting environment
     "target_image_path": "target_images/target_image_1.jpg",
-    "error_threshold": 10000.0,
-    "max_total_length": 10000,
     "max_strokes": 10000,                      # max number of strokes per episode
     "max_strokes_per_step": 1,               # max number of strokes per step
+    "max_total_length": 10000,
+    "error_threshold": 10000.0,
 
     # model parameters
-    "model_name": "resnet18",                # resnet18, resnet50, resnet101
+    "model_name": "resnet18",                # check models/image_encoder.py for available models
     "actor_lr": 1e-4,
     "critic_lr": 1e-3,
     "buffer_size": 100000,
@@ -21,7 +22,10 @@ config = {
     "gamma": 0.99,
     "tau": 0.005,
     "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-    "action_dim": 6,                        # 2D action space (x, y, r, g, b, w)
+    # 2D action space (x, y, r, g, b, w)
+    "action_dim": 6,
+    # reward function (ssim, mse, perceptual)
+    "reward_method": "CLIP_cosine_similarity",
 
     # exploration noise
     "initial_noise_scale": 0.2,
@@ -43,6 +47,7 @@ config = {
     "canvas_stroke_color": 255,  # white stroke
 
     # logging
+    "logging": True,    # whether to log training progress
     "log_dir": "logs",
     "log_every": 10,
     "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
