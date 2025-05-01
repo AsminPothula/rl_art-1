@@ -6,7 +6,7 @@ Output: Q_value
 import torch
 import torch.nn as nn
 import warnings
-from merge_network import create_merged_network
+from .merge_network import create_merged_network
 
 # Turn off all warnings
 warnings.filterwarnings("ignore")

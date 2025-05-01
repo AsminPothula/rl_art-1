@@ -1,5 +1,26 @@
+"""
+Training Script
+
+Handles the training loop for the DDPG painting agent. It:
+- Initializes the environment and models
+- Runs episodes where the agent paints using predicted actions
+- Stores experiences (canvas, prev_action, action, next_canvas, reward, done)
+- Periodically updates the Actor and Critic using replay buffer samples
+- Applies soft target updates
+- Logs training progress and saves checkpoints
+
+Inputs:
+    - Canvas (current canvas image)
+    - Target image (fixed goal)
+    - Previous action (used to generate the next one)
+
+Outputs:
+    - Trained Actor and Critic models saved to disk
+"""
+
 import torch
 import numpy as np
+import os
 from collections import deque
 from env.environment import PaintingEnv
 from models.actor import Actor
@@ -7,84 +28,135 @@ from models.critic import Critic
 from models.ddpg import DDPGAgent
 from utils.replay_buffer import ReplayBuffer
 from utils.noise import OUNoise
-from config import config
-import os
 
-# set seeds
-torch.manual_seed(config["seed"])
-np.random.seed(config["seed"])
+def train(config):
+    """
+    Full training pipeline for the DDPG agent using canvas drawing environment.
+    Initializes all components and trains the agent over multiple episodes.
+    
+    Args:
+        config (dict): Configuration dictionary containing hyperparameters and paths.
+    """
 
-# initialize environment - might have to change later 
-env = PaintingEnv(
-    image_path=config["target_image"],              
-    error_threshold=config["error_threshold"],               # for minimum error for episode to end
-    max_total_length=config["max_total_length"]              # total string length (for episode to end)
-)
+    # Set seeds for reproducibility
+    torch.manual_seed(config["seed"])
+    np.random.seed(config["seed"])
 
-state_dim = env.observation_space.shape[0]                   # flattened canvas image
-action_dim = 2                                               # continuous x and y direction
+    # Initialize environment and load target image
+    env = PaintingEnv(
+        target_image_path=config["target_image_path"],
+        canvas_size=config["image_size"],
+        max_strokes=config["max_steps"],
+        device=config["device"]
+    )
+    target_image = env.get_target_tensor().to(config["device"])
 
-# initialize actor and critic networks
-actor = Actor(state_dim, action_dim)                         # main actor and critic do the learning
-critic = Critic(state_dim, action_dim)
-actor_target = Actor(state_dim, action_dim)                  # target networks are slow-moving copies used to stabilize training
-critic_target = Critic(state_dim, action_dim)
-actor_target.load_state_dict(actor.state_dict())             # sync the targets with the main networks initially
-critic_target.load_state_dict(critic.state_dict())
+    # Model input/output dimensions
+    in_channels = 3
+    action_dim = 6
 
-# optimizers - these update the network weights during training
-actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config["actor_lr"])
-critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config["critic_lr"])
+    # Initialize Actor & Critic networks (main and target)
+    actor = Actor(
+        image_encoder_model=config["model_name"],
+        image_encoder_model_2=config["model_name"],
+        pretrained=True,
+        out_neurons=action_dim,
+        in_channels=in_channels
+    )
+    critic = Critic(
+        image_encoder_model=config["model_name"],
+        image_encoder_model_2=config["model_name"],
+        pretrained=True,
+        out_neurons=1,
+        in_channels=in_channels
+    )
+    actor_target = Actor(
+        image_encoder_model=config["model_name"],
+        image_encoder_model_2=config["model_name"],
+        pretrained=True,
+        out_neurons=action_dim,
+        in_channels=in_channels
+    )
+    critic_target = Critic(
+        image_encoder_model=config["model_name"],
+        image_encoder_model_2=config["model_name"],
+        pretrained=True,
+        out_neurons=1,
+        in_channels=in_channels
+    )
 
-# replay buffer and noise process
-replay_buffer = ReplayBuffer(config["buffer_size"])          # stores (state, action, reward, next_state)
-noise = OUNoise(action_dim)                                  # adds random noise to encourage exploration
+    # Sync target networks
+    actor_target.load_state_dict(actor.state_dict())
+    critic_target.load_state_dict(critic.state_dict())
 
-# create agent
-agent = DDPGAgent(
-    actor, critic,
-    actor_target, critic_target,
-    actor_optimizer, critic_optimizer,
-    replay_buffer, noise,
-    config
-)
+    # Set optimizers
+    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config["actor_lr"])
+    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config["critic_lr"])
 
-# logging
-os.makedirs("logs", exist_ok=True)                           # trained models are saved
-scores_window = deque(maxlen=100)                            # keeps the last 100 scores for moving average - np.mean(scores_window)
-scores = []
+    # Initialize replay buffer and noise process
+    replay_buffer = ReplayBuffer(config["buffer_size"])
+    noise = OUNoise(action_dim)
 
-# exploration noise scale - start with a larger noise, decay over time
-noise_scale = config["initial_noise_scale"]
-noise_decay = config["noise_decay"]
+    # Build the DDPG agent
+    agent = DDPGAgent(
+        actor=actor,
+        critic=critic,
+        actor_target=actor_target,
+        critic_target=critic_target,
+        actor_optimizer=actor_optimizer,
+        critic_optimizer=critic_optimizer,
+        replay_buffer=replay_buffer,
+        noise=noise,
+        config=config,
+        channels=in_channels
+    )
 
-# training loop
-for episode in range(config["episodes"]):
-    state = env.reset()                                      # reset to blank canvas
-    episode_reward = 0                                       # reset reward to 0 
-    done = False
+    # Setup logging
+    os.makedirs("logs", exist_ok=True)
+    scores_window = deque(maxlen=100)
+    scores = []
 
-    while not done:                                          # while (not done) = while (condition = true) - run when the condition is true, break if condition = false
-        action = agent.act(state, noise_scale)               # use agent.act to get (x,y) with exploration - select_action(state) = no noise - use for testing
-        next_state, reward, done, _ = env.step(action)       # call step function and get other values
+    # Exploration noise control
+    noise_scale = config["initial_noise_scale"]
+    noise_decay = config["noise_decay"]
 
-        agent.replay_buffer.store(state, action, reward, next_state, done)           # store values
-        agent.train()                                                                # train agent based on the values
+    # Main training loop
+    for episode in range(config["episodes"]):
+        canvas = env.reset()
+        prev_action = np.zeros(action_dim, dtype=np.float32)
+        episode_reward = 0
+        done = False
 
-        state = next_state                                   # make next state the current state 
-        episode_reward += reward                             # add up each action's reward to get total episode reward
+        # Episode step loop
+        while not done:
+            # Choose action using current state + exploration
+            action = agent.act(canvas, target_image, prev_action, noise_scale)
 
-    # decay noise
-    noise_scale *= noise_decay
+            # Apply action in the environment
+            next_canvas, reward, done = env.step(action)
 
-    # total episode reward 
-    scores.append(episode_reward)
-    scores_window.append(episode_reward)
-    print(f"Episode {episode+1} | Reward: {episode_reward:.2f} | Avg(100): {np.mean(scores_window):.2f}")
+            # Store experience in replay buffer
+            replay_buffer.store(canvas, prev_action, action, next_canvas, reward, done)
 
-    # save model periodically - save all the model parameteres we got from this episode
-    if (episode + 1) % config["save_every"] == 0:
-        torch.save(actor.state_dict(), f"logs/actor_{episode+1}.pth")
-        torch.save(critic.state_dict(), f"logs/critic_{episode+1}.pth")
+            # Train the agent using sampled experiences
+            agent.train(target_image)
 
-print("Training complete.")
+            # Move to next state
+            canvas = next_canvas
+            prev_action = action
+            episode_reward += reward
+
+        # Decay exploration noise
+        noise_scale *= noise_decay
+        scores.append(episode_reward)
+        scores_window.append(episode_reward)
+
+        # Progress log
+        print(f"Episode {episode + 1} | Reward: {episode_reward:.2f} | Avg(100): {np.mean(scores_window):.2f}")
+
+        # Periodically save model checkpoints
+        if (episode + 1) % config["save_every"] == 0:
+            torch.save(actor.state_dict(), f"logs/actor_{episode + 1}.pth")
+            torch.save(critic.state_dict(), f"logs/critic_{episode + 1}.pth")
+
+    print("Training complete.")

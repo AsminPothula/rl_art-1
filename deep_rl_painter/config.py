@@ -6,7 +6,7 @@ config = {
     "max_steps": 50,                         # is this the number of strokes?
 
     # painting environment
-    "target_image": "target_images/target_image_1.jpg",
+    "target_image_path": "target_images/target_image_1.jpg",
     "stroke_length": 10,                     # not using it anymore 
     "error_threshold": 10000.0,
     "max_total_length": 10000,

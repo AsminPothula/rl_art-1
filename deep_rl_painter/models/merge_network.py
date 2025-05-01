@@ -3,7 +3,7 @@ import torch.nn as nn
 import warnings
 from typing import List
 from torchsummary import summary
-from image_encoder import get_image_encoder
+from .image_encoder import get_image_encoder
 
 # Turn off all warnings
 warnings.filterwarnings("ignore")
