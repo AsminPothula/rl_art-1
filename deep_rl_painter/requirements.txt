@@ -10,3 +10,4 @@ torchvision
 pillow
 torchsummary
 lpips
+git+https://github.com/openai/CLIP.git
