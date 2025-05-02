@@ -25,7 +25,7 @@ import numpy as np
 
 class DDPGAgent:
     def __init__(self, actor, critic, actor_target, critic_target,
-                 actor_optimizer, critic_optimizer, replay_buffer, noise, config, channels):
+                 actor_optimizer, critic_optimizer, replay_buffer, noise, config):
         self.actor = actor
         self.critic = critic
         self.actor_target = actor_target
@@ -35,8 +35,10 @@ class DDPGAgent:
         self.replay_buffer = replay_buffer
         self.noise = noise
         self.config = config
-        self.channels = channels
+        self.channels = config["canvas_channels"]
+        self.device = config["device"]
 
+        # Initialize target networks with the same weights as the main networks
         self.actor_target.load_state_dict(actor.state_dict())
         self.critic_target.load_state_dict(critic.state_dict())
 
@@ -55,26 +57,34 @@ class DDPGAgent:
         """
         device = self.config["device"]
         canvas = torch.FloatTensor(canvas).to(device).unsqueeze(0)
-        target_image = torch.FloatTensor(target_image).to(device).unsqueeze(0)
+        target_image = torch.FloatTensor(target_image).to(device)
         prev_action = torch.FloatTensor(prev_action).to(device).unsqueeze(0)
 
         self.actor.eval()
         with torch.no_grad():
-            action = self.actor(canvas, target_image, prev_action).cpu().numpy()[0]
+            out = self.actor(canvas, target_image, prev_action).cpu().numpy()
+            action = out[0]  # Remove batch dimension
         self.actor.train()
-        return np.clip(action, -1, 1)
+        return action
 
-    def act(self, canvas, target_image, prev_action, noise_scale=0.0):
+    def act(self, canvas, target_image, prev_action, noise_scale=0.01):
         """
         Select an action and apply Ornstein-Uhlenbeck exploration noise.
         Used in train.py
+        Args:
+            canvas (np.ndarray): Current canvas. Dimensions: (H, W, C)
+            target_image (np.ndarray): Target image. Dimensions: (H, W, C)
+            prev_action (np.ndarray): Action previously applied to canvas. Dimensions: (batch,action_dim)
+            noise_scale (float): Scale of the noise to be added. 
+        Used to control exploration.
+
 
         Returns:
             action (np.ndarray): Noisy action for exploration.
         """
         action = self.select_action(canvas, target_image, prev_action)
         action += self.noise.sample() * noise_scale
-        return np.clip(action, -1, 1)
+        return action
 
     def update_actor_critic(self, target_image):
         """
@@ -103,14 +113,12 @@ class DDPGAgent:
             return
 
         B = self.config["batch_size"]
-        H, W = self.config["image_size"]
-        C = self.channels
         device = self.config["device"]
 
         canvas, prev_actions, actions, next_canvas, rewards, dones = self.replay_buffer.sample(B)
 
         canvas = torch.tensor(canvas, dtype=torch.float32).to(device)
-        target = torch.tensor(target_image, dtype=torch.float32).to(device).unsqueeze(0).expand(B, -1, -1, -1)
+        target = torch.tensor(target_image, dtype=torch.float32).to(device).repeat(canvas.shape[0], 1, 1, 1)
         prev_actions = torch.tensor(prev_actions, dtype=torch.float32).to(device)
         actions = torch.tensor(actions, dtype=torch.float32).to(device)
         next_canvas = torch.tensor(next_canvas, dtype=torch.float32).to(device)
@@ -120,12 +128,13 @@ class DDPGAgent:
         with torch.no_grad():
             next_prev_actions = actions
             next_actions = self.actor_target(next_canvas, target, next_prev_actions)
+            critic_actions = torch.cat((next_prev_actions, next_actions), dim=1)
             # target_Q = self.critic_target(next_canvas, target, next_prev_actions, next_actions) - not passing next_prev_action
-            target_Q = self.critic_target(next_canvas, target, next_actions)
+            target_Q = self.critic_target(next_canvas, target, critic_actions)
             target_Q = rewards + self.config["gamma"] * target_Q * (1 - dones)
 
         # current_Q = self.critic(canvas, target, prev_actions, actions) - not passing prev_action
-        current_Q = self.critic(canvas, target, actions)
+        current_Q = self.critic(canvas, target, critic_actions)
         critic_loss = F.mse_loss(current_Q, target_Q)
 
         self.critic_optimizer.zero_grad()
@@ -133,6 +142,7 @@ class DDPGAgent:
         self.critic_optimizer.step()
 
         predicted_actions = self.actor(canvas, target, prev_actions)
+        predicted_actions = torch.cat((prev_actions, predicted_actions), dim=1)
         # actor_loss = -self.critic(canvas, target, prev_actions, predicted_actions).mean()
         actor_loss = -self.critic(canvas, target, predicted_actions).mean()
 

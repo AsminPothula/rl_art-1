@@ -7,24 +7,25 @@ import torch
 import torch.nn as nn
 import warnings
 from .merge_network import create_merged_network
-
+from typing import Optional
 # Turn off all warnings
 warnings.filterwarnings("ignore")
 
 
 class Actor(nn.Module):
-    def __init__(self, image_encoder_model: str = 'resnet50',
-                 image_encoder_model_2: str = 'resnet50',
+    def __init__(self, 
+                 image_encoder_model: str = 'resnet50',
+                 image_encoder_model_2: Optional[str] = 'resnet50',
                  pretrained: bool = True,
-                 fine_tune_encoder: bool = True,
-                 fine_tune_encoder_2: bool = True,
+                 fine_tune_encoder: Optional[bool] = True,
+                 fine_tune_encoder_2: Optional[bool] = True,
                  actor_network_input: int = 6,  # 2 for x,y,r,g,b, width
                  hidden_layers: list = [512, 256, 128, 64, 32],
-                 use_custom_encoder: bool = False,
-                 use_custom_encoder_2: bool = False,
+                 use_custom_encoder: Optional[bool] = False,
+                 use_custom_encoder_2: Optional[bool] = False,
                  custom_encoder: nn.Module = None,
                  custom_encoder_2: nn.Module = None,
-                 activation_function: str = 'ReLU',
+                 activation_function: str = 'LeakyReLU',
                  in_channels: int = 3,
                  out_neurons: int = 6,
                  ) -> None:
@@ -96,6 +97,13 @@ class Actor(nn.Module):
         Returns:
             torch.Tensor: Output of the model.
         """
+        if self.in_channels == 1 and input_image_1.shape[1] != 1:
+            input_image_1 = input_image_1.permute(0, 3, 1, 2)
+            input_image_2 = input_image_2.permute(0, 3, 1, 2)
+        elif self.in_channels == 3 and input_image_1.shape[1] != 3:
+            input_image_1 = input_image_1.permute(0, 3, 1, 2)
+            input_image_2 = input_image_2.permute(0, 3, 1, 2)
+
         out = self.model(input_image_1, input_image_2, action_input)
         return out
 
