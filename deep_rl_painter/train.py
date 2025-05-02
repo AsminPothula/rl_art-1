@@ -33,6 +33,7 @@ from models.critic import Critic
 from models.ddpg import DDPGAgent
 from utils.noise import OUNoise
 from utils.replay_buffer import ReplayBuffer
+from utils.canvas import save_canvas
 
 
 def train(config):
@@ -145,6 +146,19 @@ def train(config):
 
             # Move to next state
             canvas = next_canvas
+            # Save step frame every 50th stroke for select episodes
+            if (episode + 1) in [1, 100, 500, 1000] and env.current_step % config["save_every_step"] == 0:
+                step_dir = f"step_outputs/episode_{episode + 1}"
+                os.makedirs(step_dir, exist_ok=True)
+
+                step_canvas = (canvas.squeeze().detach().cpu().numpy() * 255).astype(np.uint8)
+                if config["canvas_channels"] == 1:
+                    step_canvas = step_canvas[0]
+                elif config["canvas_channels"] == 3:
+                    step_canvas = np.transpose(step_canvas, (1, 2, 0))  # (C, H, W) → (H, W, C)
+
+                save_path = os.path.join(step_dir, f"step_{env.current_step:05d}.png")
+                save_canvas(step_canvas, save_path)
             prev_action = action
             episode_reward += reward
             print(f"Episode {episode + 1} | Step Reward: {reward}")
@@ -158,8 +172,18 @@ def train(config):
         print(
             f"Episode {episode + 1} | Reward: {episode_reward} | Running Avg(100): {np.mean(scores_window)}")
 
-        # Periodically save model checkpoints
         if (episode + 1) % config["save_every_episode"] == 0:
+            # Save final canvas of every 100th episode
+            os.makedirs("episode_outputs", exist_ok=True)
+            final_canvas = (canvas.squeeze().detach().cpu().numpy() * 255).astype(np.uint8)
+            if config["canvas_channels"] == 1:
+                final_canvas = final_canvas[0]
+            elif config["canvas_channels"] == 3:
+                final_canvas = np.transpose(final_canvas, (1, 2, 0))
+            # Periodically save model checkpoints
+            save_path = f"episode_outputs/final_ep_{episode + 1}.png"
+            save_canvas(final_canvas, save_path)
+
             torch.save(actor.state_dict(),
                        f"trained_models/actor_{episode + 1}.pth")
             torch.save(critic.state_dict(),
