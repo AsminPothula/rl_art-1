@@ -16,7 +16,7 @@ config = {
 
     # painting environment
     "target_image_path": "target_images/target_image_1.jpg",
-    "max_strokes": 10000,                      # max number of strokes per episode
+    "max_strokes": 10,                      # max number of strokes per episode
     "max_strokes_per_step": 1,               # max number of strokes per step
     "max_total_length": 10000,
     "error_threshold": 10000.0,
@@ -26,7 +26,7 @@ config = {
     "actor_lr": 1e-4,
     "critic_lr": 1e-3,
     "buffer_size": 100000,
-    "batch_size": 64,
+    "batch_size": 2,
     "gamma": 0.99,
     "tau": 0.005,
     "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),

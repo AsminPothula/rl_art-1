@@ -29,22 +29,39 @@ def calculate_reward(prev_canvas, current_canvas, target_canvas, device):
         torch.Tensor: The calculated reward (shape: [batch_size, 1]).
     """
     # Using CLIP for calculating cosine similarity
-    latent1 = get_latent_representation(
-        prev_canvas, device)
-    latent2 = get_latent_representation(
-        current_canvas, device)
-    target_latent = get_latent_representation(
-        target_canvas, device)
+    # latent1 = get_latent_representation(
+    #     prev_canvas, device)
+    # latent2 = get_latent_representation(
+    #     current_canvas, device)
+    # target_latent = get_latent_representation(
+    #     target_canvas, device)
 
     # Calculate cosine similarity
-    cosine_similarity_score_prev = calculate_cosine_similarity(
-        latent1, target_latent)
+    # cosine_similarity_score_prev = calculate_cosine_similarity(
+    #     latent1, target_latent)
 
-    cosine_similarity_score_current = calculate_cosine_similarity(
-        latent2, target_latent)
+    # cosine_similarity_score_current = calculate_cosine_similarity(
+    #     latent2, target_latent)
 
-    return cosine_similarity_score_current - cosine_similarity_score_prev
+    # cosine_similarity_reward = cosine_similarity_score_current - cosine_similarity_score_prev
 
+    mse_score_current = mse_loss(current_canvas, target_canvas)
+    mse_score_prev = mse_loss(prev_canvas, target_canvas)
+    mse_reward = mse_score_current - mse_score_prev
+    return mse_reward
+
+def mse_loss(pred, target):
+    """
+    Calculates the Mean Squared Error (MSE) loss between two tensors.
+
+    Args:
+        pred (torch.Tensor): The predicted tensor.
+        target (torch.Tensor): The target tensor.
+
+    Returns:
+        torch.Tensor: The MSE loss value.
+    """
+    return torch.mean((pred - target) ** 2)
 
 def get_latent_representation(image, device):
     """
