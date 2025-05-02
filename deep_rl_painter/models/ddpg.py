@@ -84,7 +84,6 @@ class DDPGAgent:
         """
         action = self.select_action(canvas, target_image, prev_action)
         action += self.noise.sample() * noise_scale
-        # return np.clip(action, -1, 1) # Uncomment if you want to clip the action, but it may not be necessary
         return action
 
     def update_actor_critic(self, target_image):
@@ -119,7 +118,6 @@ class DDPGAgent:
         canvas, prev_actions, actions, next_canvas, rewards, dones = self.replay_buffer.sample(B)
 
         canvas = torch.tensor(canvas, dtype=torch.float32).to(device)
-        # target = torch.tensor(target_image, dtype=torch.float32).to(device).unsqueeze(0).expand(B, -1, -1, -1)
         target = torch.tensor(target_image, dtype=torch.float32).to(device).repeat(canvas.shape[0], 1, 1, 1)
         prev_actions = torch.tensor(prev_actions, dtype=torch.float32).to(device)
         actions = torch.tensor(actions, dtype=torch.float32).to(device)
