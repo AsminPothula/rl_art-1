@@ -27,20 +27,20 @@ def init_canvas(image_shape: Tuple[int, int] | Tuple[int, int, int],
 
     Returns:
         numpy.ndarray: A NumPy array representing the initialized canvas
-            with dtype np.uint8.
+            with dtype np.float32.
     """
     if color is None:
-        return np.zeros(image_shape, dtype=np.uint8)
+        return np.zeros(image_shape, dtype=np.float32)
     elif isinstance(color, int):
-        return np.full(image_shape, color, dtype=np.uint8)
+        return np.full(image_shape, color, dtype=np.float32)
     elif isinstance(color, tuple):
         if len(image_shape) == 2:  # Grayscale with tuple color - take average
             gray_color = int(0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2])
-            return np.full(image_shape, gray_color, dtype=np.uint8)
+            return np.full(image_shape, gray_color, dtype=np.float32)
         elif len(image_shape) == 3 and image_shape[2] == 3:  # RGB
             # OpenCV uses BGR
             bgr_color = (color[2], color[1], color[0])
-            return np.full(image_shape, bgr_color, dtype=np.uint8)
+            return np.full(image_shape, bgr_color, dtype=np.float32)
         else:
             raise ValueError(
                 "Color tuple provided for incompatible image shape.")

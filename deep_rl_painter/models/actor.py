@@ -97,6 +97,13 @@ class Actor(nn.Module):
         Returns:
             torch.Tensor: Output of the model.
         """
+        if self.in_channels == 1 and input_image_1.shape[1] != 1:
+            input_image_1 = input_image_1.permute(0, 3, 1, 2)
+            input_image_2 = input_image_2.permute(0, 3, 1, 2)
+        elif self.in_channels == 3 and input_image_1.shape[1] != 3:
+            input_image_1 = input_image_1.permute(0, 3, 1, 2)
+            input_image_2 = input_image_2.permute(0, 3, 1, 2)
+
         out = self.model(input_image_1, input_image_2, action_input)
         return out
 

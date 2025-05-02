@@ -47,9 +47,9 @@ def train(config):
     # Initialize environment and load target image
     env = PaintingEnv(
         target_image_path=config["target_image_path"],
-        canvas_size=config["image_size"],
+        canvas_size=config["canvas_size"],
         canvas_channels=config["canvas_channels"],
-        max_strokes=config["max_steps"],
+        max_strokes=config["max_strokes"],
         device=config["device"]
     )
 
@@ -108,8 +108,7 @@ def train(config):
         critic_optimizer=critic_optimizer,
         replay_buffer=replay_buffer,
         noise=noise,
-        config=config,
-        channels=config["canvas_channels"]
+        config=config
     )
 
     # Setup logging
@@ -133,9 +132,7 @@ def train(config):
 
         # Episode step loop
         while not done:
-            # Choose action using current state + exploration
             action = agent.act(canvas, target_image, prev_action, noise_scale)
-
             # Apply action in the environment
             next_canvas, reward, done = env.step(action)
 
@@ -150,6 +147,7 @@ def train(config):
             canvas = next_canvas
             prev_action = action
             episode_reward += reward
+            print(f"Episode {episode + 1} | Step Reward: {reward}")
 
         # Decay exploration noise
         noise_scale *= noise_decay
