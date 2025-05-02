@@ -56,8 +56,8 @@ def main():
 
     set_seed(config["seed"])
 
-    for k, v in config.items():
-        print(f"{k}: {v}")
+    # for k, v in config.items():
+    #     print(f"{k}: {v}")
 
     if config["train"]:
         print("Training mode")

@@ -25,7 +25,7 @@ import numpy as np
 
 class DDPGAgent:
     def __init__(self, actor, critic, actor_target, critic_target,
-                 actor_optimizer, critic_optimizer, replay_buffer, noise, config, channels):
+                 actor_optimizer, critic_optimizer, replay_buffer, noise, config):
         self.actor = actor
         self.critic = critic
         self.actor_target = actor_target
@@ -35,7 +35,8 @@ class DDPGAgent:
         self.replay_buffer = replay_buffer
         self.noise = noise
         self.config = config
-        self.channels = channels
+        self.channels = config["canvas_channels"]
+        self.device = config["device"]
 
         # Initialize target networks with the same weights as the main networks
         self.actor_target.load_state_dict(actor.state_dict())
@@ -56,19 +57,27 @@ class DDPGAgent:
         """
         device = self.config["device"]
         canvas = torch.FloatTensor(canvas).to(device).unsqueeze(0)
-        target_image = torch.FloatTensor(target_image).to(device).unsqueeze(0)
+        target_image = torch.FloatTensor(target_image).to(device)
         prev_action = torch.FloatTensor(prev_action).to(device).unsqueeze(0)
 
         self.actor.eval()
         with torch.no_grad():
-            action = self.actor(canvas, target_image, prev_action).cpu().numpy()[0]
+            out = self.actor(canvas, target_image, prev_action).cpu().numpy()
+            action = out[0]  # Remove batch dimension
         self.actor.train()
-        return np.clip(action, -1, 1)
+        return action
 
     def act(self, canvas, target_image, prev_action, noise_scale=0.01):
         """
         Select an action and apply Ornstein-Uhlenbeck exploration noise.
         Used in train.py
+        Args:
+            canvas (np.ndarray): Current canvas. Dimensions: (H, W, C)
+            target_image (np.ndarray): Target image. Dimensions: (H, W, C)
+            prev_action (np.ndarray): Action previously applied to canvas. Dimensions: (batch,action_dim)
+            noise_scale (float): Scale of the noise to be added. 
+        Used to control exploration.
+
 
         Returns:
             action (np.ndarray): Noisy action for exploration.

@@ -9,8 +9,6 @@ TODO:
 - Add more error handling and validation for inputs.
 - Optimize the canvas update and rendering process.
 - Add more visualization options for the canvas.
-- Implement a more sophisticated action space (e.g., different stroke types).
-- Fix the Observation space
 - Make this compatible with the rest of the code
 - Add more tests and examples for usage.
 - Make this compatible for rgb and grayscale images
@@ -50,21 +48,10 @@ class PaintingEnv(gym.Env):
         self.channels = canvas_channels
         # target image is a numpy array of shape (H, W, C)
         self.target_image = self.load_image()
-        self.center = np.array([self.canvas.shape[0], self.canvas.shape[1]]) // 2
-        self.radius = min(self.canvas.shape[0], self.canvas.shape[1]) // 2
+        self.center = np.array([self.canvas_size[0], self.canvas_size[1]]) // 2
+        self.radius = min(self.canvas_size[0], self.canvas_size[1]) // 2
 
-        # I dont understand what these are - Keshav
-        # action_space means the action space of the environment
-        # observation_space means the observation space of the environment
-        # action_space -> [2] (x, y) vector for the direction of the stroke
-        # action_space -> [6] (x, y, r, g, b, w) vector for the color of the stroke
-        # observation_space -> [3, H, W] (3 channels for RGB image)
-
-        # self.action_space = spaces.Box(
-        #     low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
-        # self.observation_space = spaces.Box(
-        #     low=0, high=1.0, shape=(3, *self.canvas_size), dtype=np.float32
-        # )
+        # removed action space and observation space
         self._initialize()
 
     def _initialize(self):
@@ -73,9 +60,10 @@ class PaintingEnv(gym.Env):
         Sets up the canvas, current point (starting point) and used_strokes (number of strokes used).
         """
 
-        if self.channels == 1: # Grayscale canvas
-            self.canvas = init_canvas(self.canvas_size)
-        else: # RGB canvas
+        if self.channels == 1:  # Grayscale canvas
+            self.canvas = init_canvas(
+                (self.canvas_size[0], self.canvas_size[1], 1))
+        else:  # RGB canvas
             self.canvas = init_canvas(
                 (self.canvas_size[0], self.canvas_size[1], self.channels))
         self.current_point = self.random_circle_point()
@@ -91,18 +79,22 @@ class PaintingEnv(gym.Env):
             ValueError: If the image format is not supported.
         """
         if not os.path.exists(self.target_image_path):
-            raise FileNotFoundError(f"Image file {self.target_image_path} not found.")
+            raise FileNotFoundError(
+                f"Image file {self.target_image_path} not found.")
         if not self.target_image_path.lower().endswith(('.png', '.jpg', '.jpeg')):
             raise ValueError(
                 f"Unsupported image format: {self.target_image_path}. Please use PNG or JPG.")
 
         if self.channels == 1:
             img = cv2.imread(self.target_image_path, cv2.IMREAD_GRAYSCALE)
+            img = cv2.resize(
+                img, (self.canvas_size[1], self.canvas_size[0]), interpolation=cv2.INTER_AREA)
+            img = np.expand_dims(img, axis=-1)
         else:
             img = cv2.imread(self.target_image_path, cv2.IMREAD_COLOR)
-        img = cv2.resize(
-            img, (self.canvas_size[1], self.canvas_size[0]), interpolation=cv2.INTER_AREA)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(
+                img, (self.canvas_size[1], self.canvas_size[0]), interpolation=cv2.INTER_AREA)
+        img = img.astype(np.float32)
         return img
 
     def random_circle_point(self):
@@ -112,8 +104,8 @@ class PaintingEnv(gym.Env):
             (int, int): Random point on the circumference of the circle.
         """
         theta = np.random.uniform(0, 2 * np.pi)
-        out = (self.center + self.radius * np.array([np.cos(theta), np.sin(theta)])).astype(int)
-        print(f"Random circle point: {out}")
+        out = (self.center + self.radius *
+               np.array([np.cos(theta), np.sin(theta)])).astype(int)
         return out
 
     def to_tensor(self, img):
@@ -192,7 +184,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     try:
-        env = PaintingEnv(target_path, canvas_size, max_strokes, device)
+        env = PaintingEnv(target_path, canvas_size, 1, max_strokes, device)
     except FileNotFoundError as e:
         print(f"Error: {e}")
         exit()
@@ -209,9 +201,9 @@ if __name__ == '__main__':
         print(f"Step {i+1}: Action = {action}")
 
         # Set a breakpoint here to inspect variables
-        pdb.set_trace()
+        # pdb.set_trace()
 
-        next_obs, reward, done, _ = env.step(action, calculate_reward)
+        next_obs, reward, done, _ = env.step(action)
         print("Next observation shape:", next_obs.shape)
         print("Reward:", reward)
         print("Done:", done)

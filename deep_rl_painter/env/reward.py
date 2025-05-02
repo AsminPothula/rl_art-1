@@ -8,6 +8,7 @@ TODO:
 2. Optimize the get_latent_representation function to avoid unnecessary preprocessing.
 3. Add functionality to handle different image sizes and channels.
 4. Add functionality for other reward functions if needed.
+5. Fix the image dimension issue
 """
 
 import torch
@@ -61,7 +62,17 @@ def get_latent_representation(image, device):
     # Modify the model to output the features from the penultimate layer
     model, preprocess = clip.load("ViT-B/32", device=device)
     # This can be optimized further by removing some of the preprocessing steps
-    image = preprocess(transforms.ToPILImage()(image)).unsqueeze(0).to(device)
+
+    if len(image.shape) == 4 and (image.shape[1] != 1 or image.shape[1] != 3):
+        image = image.permute(0, 3, 1, 2)
+    try:
+        if len(image.shape) == 4:
+            image = image[0]
+        image = preprocess(transforms.ToPILImage()(image)).unsqueeze(0).to(device)
+    except Exception as e:
+        print(f"Error in preprocessing: {e}")
+        print("Image shape:", image.shape)
+        return None
 
     with torch.no_grad():
         latent_representation = model.encode_image(image)
