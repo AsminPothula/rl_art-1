@@ -113,7 +113,7 @@ def train(config):
 
     # Setup logging
     os.makedirs("logs", exist_ok=True)
-    scores_window = deque(maxlen=100)
+    scores_window = deque(maxlen=3)
     scores = []
 
     # Exploration noise control
@@ -156,10 +156,10 @@ def train(config):
 
         # Progress log
         print(
-            f"Episode {episode + 1} | Reward: {episode_reward:.2f} | Running Avg(100): {np.mean(scores_window):.2f}")
+            f"Episode {episode + 1} | Reward: {episode_reward} | Running Avg(100): {np.mean(scores_window)}")
 
         # Periodically save model checkpoints
-        if (episode + 1) % config["save_every"] == 0:
+        if (episode + 1) % config["save_every_episode"] == 0:
             torch.save(actor.state_dict(),
                        f"trained_models/actor_{episode + 1}.pth")
             torch.save(critic.state_dict(),

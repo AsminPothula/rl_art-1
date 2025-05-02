@@ -114,14 +114,13 @@ class DDPGAgent:
             return
 
         B = self.config["batch_size"]
-        H, W = self.config["image_size"]
-        C = self.channels
         device = self.config["device"]
 
         canvas, prev_actions, actions, next_canvas, rewards, dones = self.replay_buffer.sample(B)
 
         canvas = torch.tensor(canvas, dtype=torch.float32).to(device)
-        target = torch.tensor(target_image, dtype=torch.float32).to(device).unsqueeze(0).expand(B, -1, -1, -1)
+        # target = torch.tensor(target_image, dtype=torch.float32).to(device).unsqueeze(0).expand(B, -1, -1, -1)
+        target = torch.tensor(target_image, dtype=torch.float32).to(device).repeat(canvas.shape[0], 1, 1, 1)
         prev_actions = torch.tensor(prev_actions, dtype=torch.float32).to(device)
         actions = torch.tensor(actions, dtype=torch.float32).to(device)
         next_canvas = torch.tensor(next_canvas, dtype=torch.float32).to(device)
@@ -131,12 +130,13 @@ class DDPGAgent:
         with torch.no_grad():
             next_prev_actions = actions
             next_actions = self.actor_target(next_canvas, target, next_prev_actions)
+            critic_actions = torch.cat((next_prev_actions, next_actions), dim=1)
             # target_Q = self.critic_target(next_canvas, target, next_prev_actions, next_actions) - not passing next_prev_action
-            target_Q = self.critic_target(next_canvas, target, next_actions)
+            target_Q = self.critic_target(next_canvas, target, critic_actions)
             target_Q = rewards + self.config["gamma"] * target_Q * (1 - dones)
 
         # current_Q = self.critic(canvas, target, prev_actions, actions) - not passing prev_action
-        current_Q = self.critic(canvas, target, actions)
+        current_Q = self.critic(canvas, target, critic_actions)
         critic_loss = F.mse_loss(current_Q, target_Q)
 
         self.critic_optimizer.zero_grad()
@@ -144,6 +144,7 @@ class DDPGAgent:
         self.critic_optimizer.step()
 
         predicted_actions = self.actor(canvas, target, prev_actions)
+        predicted_actions = torch.cat((prev_actions, predicted_actions), dim=1)
         # actor_loss = -self.critic(canvas, target, prev_actions, predicted_actions).mean()
         actor_loss = -self.critic(canvas, target, predicted_actions).mean()
 
