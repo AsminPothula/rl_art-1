@@ -12,7 +12,7 @@ config = {
     # True for training, False for production mode
     "train": True,
     "seed": 42,
-    "episodes": 1000,                        # change to 500 or more later
+    "episodes": 50000,                        # change to 500 or more later
 
     # painting environment
     "target_image_path": "target_images/target_image_1.jpg",
@@ -41,7 +41,7 @@ config = {
 
     # saving
     "save_every_step": 50,
-    "save_every_episode": 100,
+    "save_every_episode": 100,            
     "save_model_dir": "models",
     "save_model_name": "model.pth",
     "save_best_model": True,

@@ -28,6 +28,7 @@ import torch
 import numpy as np
 from collections import deque
 import pandas as pd
+import csv
 from env.environment import PaintingEnv
 from models.actor import Actor
 from models.critic import Critic
@@ -45,10 +46,6 @@ def train(config):
     Args:
         config (dict): Configuration dictionary containing hyperparameters and paths.
     """
-
-    # Step & Episode reward logs
-    step_rewards_log = []
-    episode_rewards_log = []
 
     # Initialize environment and load target image
     env = PaintingEnv(
@@ -119,7 +116,7 @@ def train(config):
 
     # Setup logging
     os.makedirs("logs", exist_ok=True)
-    scores_window = deque(maxlen=3)
+    scores_window = deque(maxlen=100) # keep track of last 100 episodes, more stable than 3 
     scores = []
 
     # Exploration noise control
@@ -152,65 +149,49 @@ def train(config):
             # Move to next state
             canvas = next_canvas
             # Save step frame every 50th stroke for select episodes
-            if (episode + 1) in [1, 100, 500, 1000] and env.current_step % config["save_every_step"] == 0:
-                step_dir = f"step_outputs/episode_{episode + 1}"
+            if (episode + 1) in [1, 1000, 10000, 25000, 50000] and env.current_step % config["save_every_step"] == 0:
+                step_dir = f"step_outputs/episode_{episode + 1:05d}"
                 os.makedirs(step_dir, exist_ok=True)
-
                 step_canvas = (canvas.squeeze().detach().cpu().numpy() * 255).astype(np.uint8)
                 if config["canvas_channels"] == 1:
                     step_canvas = step_canvas[0]
                 elif config["canvas_channels"] == 3:
                     step_canvas = np.transpose(step_canvas, (1, 2, 0))  # (C, H, W) → (H, W, C)
-
-                save_path = os.path.join(step_dir, f"step_{env.current_step:05d}.png")
+                # sample path: step_outputs/episode_25000/episode_25000_step_00150.png
+                save_path = os.path.join(step_dir, f"episode_{episode + 1:05d}_step_{env.current_step:05d}.png")
                 save_canvas(step_canvas, save_path)
             prev_action = action
             episode_reward += reward
             # Log step reward
-            step_rewards_log.append({
-                "episode": episode + 1,
-                "step": env.current_step,
-                #"reward": float(reward)
-                "reward": round(float(reward), 4)
-            })
-            print(f"Episode {episode + 1} | Step Reward: {reward}")
+            with open("logs/step_rewards.csv", mode="a", newline="") as file:
+                writer = csv.writer(file)
+                if episode == 0 and env.current_step == 1:  # write header only once
+                    writer.writerow(["episode", "step", "reward"])
+                writer.writerow([episode + 1, env.current_step, round(float(reward), 4)])
+                print(f"Episode {episode + 1} | Step {env.current_step} | Step Reward: {reward}")
 
         # Decay exploration noise
         noise_scale *= noise_decay
         scores.append(episode_reward)
         # Log episode reward
-        episode_rewards_log.append({
-            "episode": episode + 1,
-            #"total_reward": float(episode_reward)
-            "total_reward": round(float(episode_reward), 4)
-
-        })
+        with open("logs/episode_rewards.csv", mode="a", newline="") as file:
+            writer = csv.writer(file)
+            if episode == 0:  # Write header only once
+                writer.writerow(["episode", "total_reward"])
+            writer.writerow([episode + 1, round(float(episode_reward), 4)])
         scores_window.append(episode_reward)
 
         # Progress log
         print(
             f"Episode {episode + 1} | Reward: {episode_reward} | Running Avg(100): {np.mean(scores_window)}")
 
+        # Save model checkpoints every 100 episodes
         if (episode + 1) % config["save_every_episode"] == 0:
-            # Save final canvas of every 100th episode
-            os.makedirs("episode_outputs", exist_ok=True)
-            final_canvas = (canvas.squeeze().detach().cpu().numpy() * 255).astype(np.uint8)
-            if config["canvas_channels"] == 1:
-                final_canvas = final_canvas[0]
-            elif config["canvas_channels"] == 3:
-                final_canvas = np.transpose(final_canvas, (1, 2, 0))
-            # Periodically save model checkpoints
-            save_path = f"episode_outputs/final_ep_{episode + 1}.png"
-            save_canvas(final_canvas, save_path)
-
+            os.makedirs("trained_models", exist_ok=True)
             torch.save(actor.state_dict(),
-                       f"trained_models/actor_{episode + 1}.pth")
+                    f"trained_models/actor_{episode + 1}.pth")
             torch.save(critic.state_dict(),
-                       f"trained_models/critic_{episode + 1}.pth")
+                    f"trained_models/critic_{episode + 1}.pth")
+            print(f"Saved model at episode {episode + 1}")
 
     print("Training complete.")
-    
-    # Save logs to csv
-    pd.DataFrame(step_rewards_log).to_csv("logs/step_rewards.csv", index=False)
-    pd.DataFrame(episode_rewards_log).to_csv("logs/episode_rewards.csv", index=False)
-    print("Reward logs saved to /logs")
