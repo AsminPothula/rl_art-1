@@ -114,7 +114,11 @@ def save_canvas(canvas: np.ndarray, path: str):
     Returns:
         bool: True if the saving was successful, False otherwise.
     """
-    saved = cv2.imwrite(path, canvas)
+
+    # update_canvas hardcodes black canvas and white stroke
+    # invert colors before saving
+    inverted_canvas = cv2.bitwise_not(canvas)
+    saved = cv2.imwrite(path, inverted_canvas)
     if not saved:
         print(f"Error: Could not save image to {path}")
     return saved

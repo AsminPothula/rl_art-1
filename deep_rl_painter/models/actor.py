@@ -163,6 +163,7 @@ if __name__ == "__main__":
     # Forward pass through the model
     output = actor_model(dummy_input, dummy_input_2, dummy_action_input)
     print(f"Output shape: {output.shape}")
+    print(f"Output values: {output.detach().cpu().numpy()}")
 
     #  save and load model works
     # Save the model
