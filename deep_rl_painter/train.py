@@ -27,6 +27,7 @@ import os
 import torch
 import numpy as np
 from collections import deque
+import pandas as pd
 from env.environment import PaintingEnv
 from models.actor import Actor
 from models.critic import Critic
@@ -44,6 +45,10 @@ def train(config):
     Args:
         config (dict): Configuration dictionary containing hyperparameters and paths.
     """
+
+    # Step & Episode reward logs
+    step_rewards_log = []
+    episode_rewards_log = []
 
     # Initialize environment and load target image
     env = PaintingEnv(
@@ -161,11 +166,25 @@ def train(config):
                 save_canvas(step_canvas, save_path)
             prev_action = action
             episode_reward += reward
+            # Log step reward
+            step_rewards_log.append({
+                "episode": episode + 1,
+                "step": env.current_step,
+                #"reward": float(reward)
+                "reward": round(float(reward), 4)
+            })
             print(f"Episode {episode + 1} | Step Reward: {reward}")
 
         # Decay exploration noise
         noise_scale *= noise_decay
         scores.append(episode_reward)
+        # Log episode reward
+        episode_rewards_log.append({
+            "episode": episode + 1,
+            #"total_reward": float(episode_reward)
+            "total_reward": round(float(episode_reward), 4)
+
+        })
         scores_window.append(episode_reward)
 
         # Progress log
@@ -190,3 +209,8 @@ def train(config):
                        f"trained_models/critic_{episode + 1}.pth")
 
     print("Training complete.")
+    
+    # Save logs to csv
+    pd.DataFrame(step_rewards_log).to_csv("logs/step_rewards.csv", index=False)
+    pd.DataFrame(episode_rewards_log).to_csv("logs/episode_rewards.csv", index=False)
+    print("Reward logs saved to /logs")
