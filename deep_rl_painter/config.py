@@ -44,7 +44,7 @@ config = {
 
     # saving
 
-    "save_every_step": 5,
+    "save_every_step": 50,
     "save_every_episode": 100,            
     "save_model_dir": "models",
     "save_model_name": "model.pth",
