@@ -100,6 +100,10 @@ def update_canvas(canvas: np.ndarray, start_point: Tuple[float, float],
     # Ensure stroke width is a positive integer
     width = max(1, int(width))
     cv2.line(canvas, start_point, end_point, line_color, width)
+    #print(canvas.shape)
+    #cv2.imshow("Canvas here:",canvas)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
     return canvas
 
 

@@ -34,7 +34,7 @@ from models.critic import Critic
 from models.ddpg import DDPGAgent
 from utils.noise import OUNoise
 from utils.replay_buffer import ReplayBuffer
-
+import cv2
 from env.canvas import save_canvas
 
 
@@ -154,16 +154,17 @@ def train(config):
             #print(canvas.shape)
             # Save step frame every 50th stroke for select episodes
             if (episode + 1) in [1, 1000, 10000, 25000, 50000] and env.used_strokes % config["save_every_step"] == 0:
-                step_dir = f"step_outputs/episode_{episode + 1:05d}"
+                step_dir = f"step_outputs/episode_{episode + 1}"
                 os.makedirs(step_dir, exist_ok=True)
                 #step_canvas = (canvas.squeeze().detach().cpu().numpy() * 255).astype(np.uint8)
                 #if config["canvas_channels"] == 1:
-                #    step_canvas = step_canvas[0]
+                #    step_canvas = 
                 #elif config["canvas_channels"] == 3:
-                #    step_canvas = np.transpose(step_canvas, (1, 2, 0))  # (C, H, W) → (H, W, C)
+                #    step_canvas = canvas
                 # sample path: step_outputs/episode_25000/episode_25000_step_00150.png
-                save_path = os.path.join(step_dir, f"episode_{episode + 1}_step_{env.used_strokes}.png")
-                save_canvas(canvas, save_path)
+                save_path = os.path.join(step_dir, f"step_{env.used_strokes}.png")
+                #save_canvas(canvas, save_path)
+                cv2.imwrite(save_path, canvas.astype("uint8"))
             prev_action = action
             episode_reward += reward
 
