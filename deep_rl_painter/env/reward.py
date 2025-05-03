@@ -29,12 +29,10 @@ def calculate_reward(prev_canvas, current_canvas, target_canvas, device):
         torch.Tensor: The calculated reward (shape: [batch_size, 1]).
     """
     # Using CLIP for calculating cosine similarity
-    # latent1 = get_latent_representation(
-    #     prev_canvas, device)
-    # latent2 = get_latent_representation(
-    #     current_canvas, device)
-    # target_latent = get_latent_representation(
-    #     target_canvas, device)
+
+    latent1 = get_latent_representation(prev_canvas, device)
+    latent2 = get_latent_representation(current_canvas, device)
+    target_latent = get_latent_representation(target_canvas, device)
 
     # Calculate cosine similarity
     # cosine_similarity_score_prev = calculate_cosine_similarity(
@@ -45,10 +43,15 @@ def calculate_reward(prev_canvas, current_canvas, target_canvas, device):
 
     # cosine_similarity_reward = cosine_similarity_score_current - cosine_similarity_score_prev
 
-    mse_score_current = mse_loss(current_canvas, target_canvas)
-    mse_score_prev = mse_loss(prev_canvas, target_canvas)
+
+    mse_score_current = mse_loss(latent2, target_latent) # current_canvas - this mse needs to be lower
+    mse_score_prev = mse_loss(latent1, target_latent) # prev_canvas
     mse_reward = mse_score_current - mse_score_prev
-    return mse_reward
+
+    #print("Reward tensor (before negation):", mse_reward) # reward
+    #print("Reward scalar (before negation):", mse_reward.item()) # reward.item()
+    return -mse_reward  
+
 
 def mse_loss(pred, target):
     """

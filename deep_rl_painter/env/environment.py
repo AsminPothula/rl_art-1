@@ -137,16 +137,17 @@ class PaintingEnv(gym.Env):
         current_tensor = self.to_tensor(self.canvas)
         target_tensor = self.to_tensor(self.target_image)
 
-        # Not sure if this is correct - Keshav
+        # reward is a tensor here
         reward = calculate_reward(
             prev_tensor, current_tensor, target_tensor, device=self.device)
 
-        # Not sure if this is correct - Keshav
         done = self.used_strokes >= self.max_strokes
-        next_state = self.to_tensor(self.canvas).squeeze(
-            0).cpu().numpy().flatten()
+        
+        # the line below was used create the next state representation for the agent, to save in replay buffer 
+        #next_state = self.to_tensor(self.canvas).squeeze(0).cpu().numpy().flatten()
 
-        # No more flattening - Keshav
+
+        # reward.item() gives a plain float value as expected by train.py instead of a tensor
         return self.canvas, reward.item(), done
 
     def reset(self):
@@ -178,7 +179,9 @@ class PaintingEnv(gym.Env):
 
 if __name__ == '__main__':
     # Example usage with the debugger
-    target_path = '../target.jpg'
+
+    target_path = 'target.jpg' #change back to '../target.jpg'
+
     canvas_size = (64, 64)
     max_strokes = 10
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
