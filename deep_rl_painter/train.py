@@ -172,7 +172,7 @@ def train(config):
                 writer = csv.writer(file)
                 if episode == 0 and env.current_step == 1:  # write header only once
                     writer.writerow(["episode", "step", "reward"])
-                writer.writerow([episode + 1, env.current_step, round(float(reward), 4)])
+                writer.writerow([episode + 1, env.current_step, reward)])
                 print(f"Episode {episode + 1} | Step {env.current_step} | Step Reward: {reward}")
 
 
@@ -184,7 +184,7 @@ def train(config):
             writer = csv.writer(file)
             if episode == 0:  # Write header only once
                 writer.writerow(["episode", "total_reward"])
-            writer.writerow([episode + 1, round(float(episode_reward), 4)])
+            writer.writerow([episode + 1, episode_reward)])
         scores_window.append(episode_reward)
 
         # Progress log
