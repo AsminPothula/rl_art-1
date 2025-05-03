@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 deel_rl_painter/logs/*
 *.pth
+*.csv
+
+
+

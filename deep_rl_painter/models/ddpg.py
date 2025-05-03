@@ -57,7 +57,7 @@ class DDPGAgent:
         """
         device = self.config["device"]
         canvas = torch.FloatTensor(canvas).to(device).unsqueeze(0)
-        target_image = torch.FloatTensor(target_image).to(device)
+        #target_image = torch.FloatTensor(target_image).to(device)
         prev_action = torch.FloatTensor(prev_action).to(device).unsqueeze(0)
 
         self.actor.eval()

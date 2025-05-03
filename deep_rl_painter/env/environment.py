@@ -121,11 +121,12 @@ class PaintingEnv(gym.Env):
         prev_canvas = self.canvas.copy()
 
         # Calculate direction and next point
-        unit_vector = action / (np.linalg.norm(action) + 1e-8)
+        unit_vector = action[:2] / (np.linalg.norm(action[:2]) + 1e-8)
         next_point = (
             int(self.center[0] + unit_vector[0] * self.radius),
             int(self.center[1] + unit_vector[1] * self.radius)
         )
+        
 
         self.canvas = update_canvas(self.canvas, tuple(
             self.current_point), tuple(next_point))
