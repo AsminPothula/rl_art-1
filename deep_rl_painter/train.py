@@ -154,7 +154,7 @@ def train(config):
             canvas = next_canvas
             # Save step frame every 50th stroke for select episodes
             if (episode + 1) in [1, 1000, 10000, 25000, 50000] and env.current_step % config["save_every_step"] == 0:
-                step_dir = f"step_outputs/episode_{episode + 1:05d}"
+                step_dir = f"step_outputs/"
                 os.makedirs(step_dir, exist_ok=True)
                 step_canvas = (canvas.squeeze().detach().cpu().numpy() * 255).astype(np.uint8)
                 if config["canvas_channels"] == 1:
@@ -162,7 +162,7 @@ def train(config):
                 elif config["canvas_channels"] == 3:
                     step_canvas = np.transpose(step_canvas, (1, 2, 0))  # (C, H, W) → (H, W, C)
                 # sample path: step_outputs/episode_25000/episode_25000_step_00150.png
-                save_path = os.path.join(step_dir, f"episode_{episode + 1:05d}_step_{env.current_step:05d}.png")
+                save_path = os.path.join(step_dir, f"episode_{episode + 1}_step_{env.current_step}.png")
                 save_canvas(step_canvas, save_path)
             prev_action = action
             episode_reward += reward
