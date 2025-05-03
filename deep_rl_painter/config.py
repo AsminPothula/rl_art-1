@@ -12,11 +12,13 @@ config = {
     # True for training, False for production mode
     "train": True,
     "seed": 42,
+
     "episodes": 50000,                        # change to 500 or more later
 
     # painting environment
     "target_image_path": "target_images/target_image_1.jpg",
     "max_strokes": 10000,                    # max number of strokes per episode
+
     "max_strokes_per_step": 1,               # max number of strokes per step
     "max_total_length": 10000,
     "error_threshold": 10000.0,
@@ -26,6 +28,7 @@ config = {
     "actor_lr": 1e-4,
     "critic_lr": 1e-3,
     "buffer_size": 100000,
+
     "batch_size": 64,                       # if training is unstable (reward jumps/loss spikes), =32
     "gamma": 0.99,
     "tau": 0.005,
@@ -40,6 +43,7 @@ config = {
     "noise_decay": 0.995,
 
     # saving
+
     "save_every_step": 50,
     "save_every_episode": 100,            
     "save_model_dir": "models",

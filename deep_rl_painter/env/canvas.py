@@ -114,6 +114,7 @@ def save_canvas(canvas: np.ndarray, path: str):
     Returns:
         bool: True if the saving was successful, False otherwise.
     """
+
     # update_canvas hardcodes black canvas and white stroke
     # invert colors before saving
     inverted_canvas = cv2.bitwise_not(canvas)

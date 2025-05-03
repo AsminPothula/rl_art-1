@@ -35,7 +35,9 @@ from models.critic import Critic
 from models.ddpg import DDPGAgent
 from utils.noise import OUNoise
 from utils.replay_buffer import ReplayBuffer
+
 from utils.canvas import save_canvas
+
 
 
 def train(config):
@@ -116,7 +118,9 @@ def train(config):
 
     # Setup logging
     os.makedirs("logs", exist_ok=True)
+
     scores_window = deque(maxlen=100) # keep track of last 100 episodes, more stable than 3 
+
     scores = []
 
     # Exploration noise control
@@ -162,6 +166,7 @@ def train(config):
                 save_canvas(step_canvas, save_path)
             prev_action = action
             episode_reward += reward
+
             # Log step reward
             with open("logs/step_rewards.csv", mode="a", newline="") as file:
                 writer = csv.writer(file)
@@ -169,6 +174,7 @@ def train(config):
                     writer.writerow(["episode", "step", "reward"])
                 writer.writerow([episode + 1, env.current_step, round(float(reward), 4)])
                 print(f"Episode {episode + 1} | Step {env.current_step} | Step Reward: {reward}")
+
 
         # Decay exploration noise
         noise_scale *= noise_decay
@@ -184,6 +190,9 @@ def train(config):
         # Progress log
         print(
             f"Episode {episode + 1} | Reward: {episode_reward} | Running Avg(100): {np.mean(scores_window)}")
+
+
+
 
         # Save model checkpoints every 100 episodes
         if (episode + 1) % config["save_every_episode"] == 0:

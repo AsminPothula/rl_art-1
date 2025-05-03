@@ -146,6 +146,7 @@ class PaintingEnv(gym.Env):
         # the line below was used create the next state representation for the agent, to save in replay buffer 
         #next_state = self.to_tensor(self.canvas).squeeze(0).cpu().numpy().flatten()
 
+
         # reward.item() gives a plain float value as expected by train.py instead of a tensor
         return self.canvas, reward.item(), done
 
@@ -178,7 +179,9 @@ class PaintingEnv(gym.Env):
 
 if __name__ == '__main__':
     # Example usage with the debugger
+
     target_path = 'target.jpg' #change back to '../target.jpg'
+
     canvas_size = (64, 64)
     max_strokes = 10
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
