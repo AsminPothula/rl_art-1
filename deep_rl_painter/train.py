@@ -36,7 +36,7 @@ from models.ddpg import DDPGAgent
 from utils.noise import OUNoise
 from utils.replay_buffer import ReplayBuffer
 
-from utils.canvas import save_canvas
+from env.canvas import save_canvas
 
 
 
