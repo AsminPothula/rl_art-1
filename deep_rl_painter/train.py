@@ -17,12 +17,6 @@ Inputs:
 Outputs:
     - Trained Actor and Critic models saved to disk
 
-TODO:
-    - FIX THE DDPG AGENT
-    - Add logging for training progress
-    - Add hyperparameter tuning options
-    - Consider using a learning rate scheduler for optimizers
-"""
 import os
 import torch
 import numpy as np
